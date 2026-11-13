@@ -11,6 +11,7 @@ app.use(express.json({ limit: "2mb" }));
 const PORT = process.env.PORT || 3000;
 
 const keys = {
+  openrouter: process.env.OPENROUTER_API_KEY
   openai: process.env.OPENAI_API_KEY,
   claude: process.env.CLAUDE_API_KEY,
   gemini: process.env.GEMINI_API_KEY,
@@ -48,18 +49,22 @@ Search information: ${JSON.stringify(search || {})}`;
 
     let text;
 
-    if (["openai", "deepseek", "groq"].includes(selected)) {
+    if (["openai", "deepseek", "groq", "openrouter"].includes(selected)) {
       const base = selected === "openai"
         ? "https://api.openai.com/v1"
         : selected === "deepseek"
         ? "https://api.deepseek.com"
-        : "https://api.groq.com/openai/v1";
+        : "https://api.groq.com/openai/v1"
+        : selected === "openrouter"
+        ? "https://openrouter.ai/api/v1";
 
       const model = selected === "openai"
         ? "gpt-4o-mini"
         : selected === "deepseek"
         ? "deepseek-chat"
-        : "openai/gpt-oss-120b";
+        : "openai/gpt-oss-120b"
+        : selected === "openrouter"
+        ? "openrouter/free";
 
       const r = await fetch(`${base}/chat/completions`, {
         method: "POST",
