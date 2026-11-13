@@ -11,7 +11,7 @@ app.use(express.json({ limit: "2mb" }));
 const PORT = process.env.PORT || 3000;
 
 const keys = {
-  openrouter: process.env.OPENROUTER_API_KEY
+  openrouter: process.env.OPENROUTER_API_KEY,
   openai: process.env.OPENAI_API_KEY,
   claude: process.env.CLAUDE_API_KEY,
   gemini: process.env.GEMINI_API_KEY,
@@ -54,24 +54,31 @@ Search information: ${JSON.stringify(search || {})}`;
         ? "https://api.openai.com/v1"
         : selected === "deepseek"
         ? "https://api.deepseek.com"
-        : "https://api.groq.com/openai/v1"
-        : selected === "openrouter"
-        ? "https://openrouter.ai/api/v1";
+        : selected === "groq"
+        ? "https://api.groq.com/openai/v1"
+        : "https://openrouter.ai/api/v1";
 
       const model = selected === "openai"
         ? "gpt-4o-mini"
         : selected === "deepseek"
         ? "deepseek-chat"
-        : "openai/gpt-oss-120b"
-        : selected === "openrouter"
-        ? "openrouter/free";
+        : selected === "groq"
+        ? "openai/gpt-oss-120b"
+        : "openrouter/free";
+
+      const headers = {
+        "Authorization": `Bearer ${keys[selected]}`,
+        "Content-Type": "application/json"
+      };
+
+      if (selected === "openrouter") {
+        headers["HTTP-Referer"] = "https://nova-2tv2.onrender.com";
+        headers["X-Title"] = "NOVA AI";
+      }
 
       const r = await fetch(`${base}/chat/completions`, {
         method: "POST",
-        headers: {
-          "Authorization": `Bearer ${keys[selected]}`,
-          "Content-Type": "application/json"
-        },
+        headers,
         body: JSON.stringify({
           model,
           messages: [
@@ -140,7 +147,7 @@ Search information: ${JSON.stringify(search || {})}`;
   }
 });
 
-// ELEVENLABS - CODKII HORE
+// ELEVENLABS
 app.post("/api/tts", async (req, res) => {
   try {
     if (!process.env.ELEVENLABS_API_KEY ||
@@ -230,4 +237,3 @@ app.use(express.static(__dirname + "/public"));
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`NOVA Backend running on port ${PORT}`);
 });
-
