@@ -231,8 +231,8 @@ app.post("/api/test", async (req, res) => {
   res.json({ success: true, provider: p });
 });
 
-// FRONTEND
-app.use(express.static(__dirname + "/public"));
+// FRONTEND — FIXED
+app.use(express.static(__dirname));
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`NOVA Backend running on port ${PORT}`);
