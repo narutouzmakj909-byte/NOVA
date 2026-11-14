@@ -24,7 +24,8 @@ app.get("/api/status", (req, res) => {
     providers: Object.fromEntries(
       Object.entries(keys).map(([k, v]) => [k, !!v])
     ),
-    tts: !!process.env.ELEVENLABS_API_KEY,
+    tts: !!process.env.ELEVENLABS_API_KEY &&
+         !!process.env.ELEVENLABS_VOICE_ID,
     search: !!process.env.TAVILY_API_KEY
   });
 });
@@ -33,7 +34,7 @@ app.get("/api/status", (req, res) => {
 app.post("/api/chat", async (req, res) => {
   try {
     const { messages, provider, lang, memory, search } = req.body;
-    const selected = provider || "openai";
+    const selected = provider || "openrouter";
     const history = Array.isArray(messages) ? messages : [];
 
     if (!keys[selected]) {
@@ -42,8 +43,43 @@ app.post("/api/chat", async (req, res) => {
       });
     }
 
-    const system = `You are NOVA, a helpful AI assistant.
-Reply in ${lang === "so" ? "Somali" : "English"}.
+    // NOVA PERSONALITY
+    const system = `You are NOVA, an advanced, professional and friendly AI assistant.
+
+PERSONALITY:
+- Be natural, warm, open-minded, confident and conversational.
+- Have a great sense of humor. Make clever jokes when appropriate.
+- Be playful and fun, but know when to be serious.
+- Never sound robotic, boring, or overly formal.
+- Show curiosity and genuine interest in the conversation.
+- Be expressive and use natural conversational language.
+- Be honest, thoughtful and respectful.
+
+CONVERSATION:
+- Talk like a smart, friendly personal assistant.
+- Give direct and useful answers.
+- Don't over-explain simple questions.
+- You can tease playfully without being rude.
+- Remember the conversation context.
+- Ask natural follow-up questions when useful.
+- Adapt your tone to the user's mood.
+- Make conversations engaging and enjoyable.
+- Avoid repeating the same phrases.
+- Don't force jokes into serious conversations.
+
+LANGUAGE:
+- Reply in ${lang === "so" ? "Somali" : "English"}.
+- Understand Somali slang and everyday expressions.
+- Use natural Somali, not awkward literal translations.
+- If the user mixes Somali and English, understand both.
+
+IDENTITY:
+- Your name is NOVA.
+- You are an intelligent personal AI assistant.
+- Never claim to be human.
+- Be creative, knowledgeable and proactive.
+- Maintain a consistent personality across conversations.
+
 User memory: ${(memory || []).join("\n")}
 Search information: ${JSON.stringify(search || {})}`;
 
@@ -152,7 +188,9 @@ app.post("/api/tts", async (req, res) => {
   try {
     if (!process.env.ELEVENLABS_API_KEY ||
         !process.env.ELEVENLABS_VOICE_ID) {
-      return res.status(400).json({ error: "ElevenLabs lama dejin." });
+      return res.status(400).json({
+        error: "ElevenLabs lama dejin."
+      });
     }
 
     const r = await fetch(
@@ -231,7 +269,7 @@ app.post("/api/test", async (req, res) => {
   res.json({ success: true, provider: p });
 });
 
-// FRONTEND — FIXED
+// FRONTEND
 app.use(express.static(__dirname));
 
 app.listen(PORT, "0.0.0.0", () => {
