@@ -361,7 +361,7 @@ go('voice');
 const $=s=>document.querySelector(s),esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const ld=(k,d)=>{try{const v=localStorage.getItem('nova.'+k);return v==null?d:JSON.parse(v)}catch{return d}};
 const sv=(k,v)=>{try{localStorage.setItem('nova.'+k,JSON.stringify(v))}catch{toast('Could not save: browser storage is unavailable or full.')}};
-let cfg=Object.assign({name:'NOVA User',lang:'en',provider:'openrouter',speed:1,vol:1,mem:true,pic:'',speakChat:false,barge:false},ld('cfg',{}));
+let cfg=Object.assign({name:'NOVA User',lang:'en',provider:'openrouter',ttsProvider:'elevenlabs',speed:1,vol:1,mem:true,pic:'',speakChat:false,barge:false},ld('cfg',{}));
 if(cfg.provider==='openai'){cfg.provider='openrouter';sv('cfg',cfg)}
 let msgs=ld('msgs',[]),mem=ld('mem',[]),tasks=ld('tasks',[]),rem=ld('rem',[]),res=ld('res',[]);
 const I={en:{idle:'Ready',listening:'Listening',thinking:'Thinking',searching:'Searching',speaking:'Speaking',error:'Something went wrong',note:'Tap the mic to start voice mode. NOVA listens only while the red dot is on.',on:'Microphone is ON. Just talk.',pause:'Pause',resume:'Resume',mute:'Mute',unmute:'Unmute',stop:'Stop',net:'Cannot reach the NOVA backend. Is server.js running?',mic:'Microphone permission was denied. Allow it in your browser or Android settings.',nosr:'Speech recognition is not supported in this browser. Use Chrome.'},
@@ -398,13 +398,16 @@ function listen(){if(!A.voice||A.paused||A.rec||A.busy)return;if(state==='speaki
 function startVoice(){A.voice=true;A.paused=false;A.retry=0;micUI();listen()}
 function stopVoice(){A.voice=false;A.paused=false;A.gen++;A.busy=false;if(A.rec){try{A.rec.abort()}catch{}}stopSpeech();setState('idle');micUI()}
 function interrupt(){A.gen++;stopSpeech();A.busy=false;if(state==='speaking')setState(A.voice&&!A.paused?'listening':'idle')}
-// --- speaking (ElevenLabs via backend only) ---
+// --- speaking (ElevenLabs / Somali TextReadTTS via backend only) ---
 function stopSpeech(){if(A.abort)A.abort.abort();if(A.audio){A.audio.pause();A.audio=null}}
 async function speakAll(text,g){if(A.muted)return;const parts=text.match(/[^.!?\n]+[.!?]*\s*/g)||[text],ch=[];let c='';
  for(const p of parts){if((c+p).length>600&&c){ch.push(c);c=''}c+=p}if(c.trim())ch.push(c);
  A.busy=false;setState('speaking');if(A.voice)listen();
+ const somali=cfg.ttsProvider==='somali';
  for(const part of ch){if(g!==A.gen||A.muted)return;A.abort=new AbortController();
-  const r=await fetch(API_BASE+'/api/tts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:part,speed:cfg.speed}),signal:A.abort.signal}).catch(e=>{if(e.name==='AbortError')return null;throw new Error(t('net'))});
+  const endpoint=somali?'/api/tts/somali':'/api/tts';
+  const body=somali?{text:part}:{text:part,speed:cfg.speed};
+  const r=await fetch(API_BASE+endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:A.abort.signal}).catch(e=>{if(e.name==='AbortError')return null;throw new Error(t('net'))});
   if(!r)return;if(!r.ok){const d=await r.json().catch(()=>({}));throw new Error(d.error||'Voice error '+r.status)}
   const url=URL.createObjectURL(await r.blob());if(g!==A.gen)return;const au=new Audio(url);au.volume=cfg.vol;A.audio=au;
   await new Promise((ok,no)=>{au.onended=ok;au.onpause=ok;au.onerror=()=>no(new Error('Audio playback failed'));au.play().catch(no)});URL.revokeObjectURL(url)}}
@@ -459,7 +462,13 @@ function setPic(f){if(!f)return;const i=new Image();i.onload=()=>{const c=docume
 function setLang(l){cfg.lang=l;sv('cfg',cfg);updHeader();micUI();setState(state);render(window.PG)}
 R.settings=()=>{setTimeout(async()=>{const s=$('#pst');if(!s)return;try{const d=await(await fetch(API_BASE+'/api/status')).json();s.textContent='Configured on server: '+Object.entries(d.providers).filter(x=>x[1]).map(x=>x[0]).join(', ')+(d.tts?' · voice ready':' · voice NOT configured')+(d.search?' · search ready':' · search NOT configured')}catch{s.textContent=t('net')}},0);return null};
 const SETTINGS_EXTRA=()=>`<div class="sec"><div class="label">AI provider</div><select class="t" onchange="cfg.provider=this.value;sv('cfg',cfg)">${['openrouter','openai','claude','gemini','deepseek','groq'].map(p=>`<option value="${p}" ${cfg.provider===p?'selected':''}>${p}</option>`).join('')}</select><button class="btn" id="tb" onclick="testProv()">Test selected provider</button><div class="dim" style="font-size:12px" id="pst">Checking…</div></div>
-<div class="sec"><div class="label">Voice</div><label>Speed <input type="range" min=".7" max="1.2" step=".05" value="${cfg.speed}" onchange="cfg.speed=+this.value;sv('cfg',cfg)"></label><label>Volume <input type="range" min="0" max="1" step=".05" value="${cfg.vol}" onchange="cfg.vol=+this.value;sv('cfg',cfg)"></label>
+<div class="sec"><div class="label">Voice</div>
+<label>Voice Engine
+<select class="t" onchange="cfg.ttsProvider=this.value;sv('cfg',cfg)">
+<option value="elevenlabs" ${cfg.ttsProvider==='elevenlabs'?'selected':''}>ElevenLabs</option>
+<option value="somali" ${cfg.ttsProvider==='somali'?'selected':''}>Somali – TextReadTTS</option>
+</select></label>
+<label>Speed <input type="range" min=".7" max="1.2" step=".05" value="${cfg.speed}" onchange="cfg.speed=+this.value;sv('cfg',cfg)"></label><label>Volume <input type="range" min="0" max="1" step=".05" value="${cfg.vol}" onchange="cfg.vol=+this.value;sv('cfg',cfg)"></label>
 <label class="row"><span>Speak Chat replies</span><input class="sw" type="checkbox" ${cfg.speakChat?'checked':''} onchange="cfg.speakChat=this.checked;sv('cfg',cfg)"></label><label class="row"><span>Interrupt by voice<br><small class="dim">Use headphones, or NOVA may hear itself.</small></span><input class="sw" type="checkbox" ${cfg.barge?'checked':''} onchange="cfg.barge=this.checked;sv('cfg',cfg)"></label></div>
 <div class="sec"><div class="label">Data & safety</div><button class="btn danger" onclick="stopAll()">Emergency stop</button><button class="btn danger" onclick="if(confirm('Delete ALL local NOVA data?')){Object.keys(localStorage).filter(k=>k.startsWith('nova.')).forEach(k=>localStorage.removeItem(k));location.reload()}">Delete all data</button></div>`;
 async function testProv(){const b=$('#tb');b.classList.add('busy');try{await api('/api/test',{provider:cfg.provider},0);toast(cfg.provider+' works.')}catch(e){toast(cfg.provider+': '+e.message)}b.classList.remove('busy')}
