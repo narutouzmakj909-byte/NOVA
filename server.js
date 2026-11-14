@@ -19,6 +19,7 @@ const keys = {
   groq: process.env.GROQ_API_KEY
 };
 
+// STATUS
 app.get("/api/status", (req, res) => {
   res.json({
     providers: Object.fromEntries(
@@ -26,6 +27,7 @@ app.get("/api/status", (req, res) => {
     ),
     tts: !!process.env.ELEVENLABS_API_KEY &&
          !!process.env.ELEVENLABS_VOICE_ID,
+    somaliTts: true,
     search: !!process.env.TAVILY_API_KEY
   });
 });
@@ -43,7 +45,6 @@ app.post("/api/chat", async (req, res) => {
       });
     }
 
-    // NOVA PERSONALITY
     const system = `You are NOVA, an advanced, professional and friendly AI assistant.
 
 PERSONALITY:
@@ -103,7 +104,7 @@ Search information: ${JSON.stringify(search || {})}`;
         : "openrouter/free";
 
       const headers = {
-        "Authorization": `Bearer ${keys[selected]}`,
+        Authorization: `Bearer ${keys[selected]}`,
         "Content-Type": "application/json"
       };
 
@@ -125,28 +126,39 @@ Search information: ${JSON.stringify(search || {})}`;
       });
 
       const d = await r.json();
-      if (!r.ok) throw new Error(d.error?.message || "AI request failed");
+
+      if (!r.ok) {
+        throw new Error(d.error?.message || "AI request failed");
+      }
+
       text = d.choices?.[0]?.message?.content;
     }
 
     if (selected === "claude") {
-      const r = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "x-api-key": keys.claude,
-          "anthropic-version": "2023-06-01",
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          model: "claude-3-5-haiku-latest",
-          max_tokens: 1500,
-          system,
-          messages: history
-        })
-      });
+      const r = await fetch(
+        "https://api.anthropic.com/v1/messages",
+        {
+          method: "POST",
+          headers: {
+            "x-api-key": keys.claude,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            model: "claude-3-5-haiku-latest",
+            max_tokens: 1500,
+            system,
+            messages: history
+          })
+        }
+      );
 
       const d = await r.json();
-      if (!r.ok) throw new Error(d.error?.message || "Claude failed");
+
+      if (!r.ok) {
+        throw new Error(d.error?.message || "Claude failed");
+      }
+
       text = d.content?.map(x => x.text || "").join("");
     }
 
@@ -162,15 +174,22 @@ Search information: ${JSON.stringify(search || {})}`;
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            systemInstruction: { parts: [{ text: system }] },
+            systemInstruction: {
+              parts: [{ text: system }]
+            },
             contents
           })
         }
       );
 
       const d = await r.json();
-      if (!r.ok) throw new Error(d.error?.message || "Gemini failed");
-      text = d.candidates?.[0]?.content?.parts?.map(x => x.text || "").join("");
+
+      if (!r.ok) {
+        throw new Error(d.error?.message || "Gemini failed");
+      }
+
+      text = d.candidates?.[0]?.content?.parts
+        ?.map(x => x.text || "").join("");
     }
 
     res.json({
@@ -183,11 +202,13 @@ Search information: ${JSON.stringify(search || {})}`;
   }
 });
 
-// ELEVENLABS
+// ELEVENLABS TTS
 app.post("/api/tts", async (req, res) => {
   try {
-    if (!process.env.ELEVENLABS_API_KEY ||
-        !process.env.ELEVENLABS_VOICE_ID) {
+    if (
+      !process.env.ELEVENLABS_API_KEY ||
+      !process.env.ELEVENLABS_VOICE_ID
+    ) {
       return res.status(400).json({
         error: "ElevenLabs lama dejin."
       });
@@ -207,16 +228,83 @@ app.post("/api/tts", async (req, res) => {
           voice_settings: {
             stability: 0.5,
             similarity_boost: 0.75,
-            speed: Math.max(0.7, Math.min(1.2, Number(req.body.speed) || 1))
+            speed: Math.max(
+              0.7,
+              Math.min(1.2, Number(req.body.speed) || 1)
+            )
           }
         })
       }
     );
 
-    if (!r.ok) throw new Error(await r.text());
+    if (!r.ok) {
+      throw new Error(await r.text());
+    }
 
     res.set("Content-Type", "audio/mpeg");
     res.send(Buffer.from(await r.arrayBuffer()));
+
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// TEXTREADTTS - SOMALI VOICE
+app.post("/api/tts/somali", async (req, res) => {
+  try {
+    const text = String(req.body.text || "").trim();
+
+    if (!text) {
+      return res.status(400).json({
+        error: "Qoraal geli."
+      });
+    }
+
+    if (text.length > 1000) {
+      return res.status(400).json({
+        error: "Qoraalku aad buu u dheer yahay. Yaree."
+      });
+    }
+
+    const params = new URLSearchParams({
+      accessKey: "FREE",
+      language: "somali",
+      speaker: "speaker1",
+      text
+    });
+
+    const r = await fetch(
+      `https://textreadtts.com/tts/convert?${params}`
+    );
+
+    const data = await r.json();
+
+    if (!r.ok || data.code !== 0 || !data.audio) {
+      throw new Error(data.message || "Somali TTS failed.");
+    }
+
+    const audioUrl = new URL(data.audio);
+
+    if (
+      audioUrl.protocol !== "https:" ||
+      !(
+        audioUrl.hostname === "textreadtts.com" ||
+        audioUrl.hostname.endsWith(".textreadtts.com")
+      )
+    ) {
+      throw new Error("Invalid audio URL.");
+    }
+
+    const audioResponse = await fetch(audioUrl);
+
+    if (!audioResponse.ok) {
+      throw new Error("Audio download failed.");
+    }
+
+    res.set("Content-Type", "audio/mpeg");
+    res.send(
+      Buffer.from(await audioResponse.arrayBuffer())
+    );
 
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -230,18 +318,26 @@ app.post("/api/search", async (req, res) => {
       return res.json({ results: [] });
     }
 
-    const r = await fetch("https://api.tavily.com/search", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        api_key: process.env.TAVILY_API_KEY,
-        query: req.body.q,
-        max_results: 5
-      })
-    });
+    const r = await fetch(
+      "https://api.tavily.com/search",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          api_key: process.env.TAVILY_API_KEY,
+          query: req.body.q,
+          max_results: 5
+        })
+      }
+    );
 
     const d = await r.json();
-    if (!r.ok) throw new Error("Search failed");
+
+    if (!r.ok) {
+      throw new Error("Search failed");
+    }
 
     res.json({
       results: (d.results || []).map(x => ({
@@ -266,7 +362,10 @@ app.post("/api/test", async (req, res) => {
     });
   }
 
-  res.json({ success: true, provider: p });
+  res.json({
+    success: true,
+    provider: p
+  });
 });
 
 // FRONTEND
