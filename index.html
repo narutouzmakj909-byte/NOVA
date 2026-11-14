@@ -1122,7 +1122,7 @@ draw=function(){
   const a=t*(.6+i*.25)*(state==='thinking'?3:1)+i*2;ctx.beginPath();ctx.arc(Math.cos(a)*rx,Math.sin(a)*ry,r*.011,0,TAUv);ctx.fillStyle=rgba(P,.95);ctx.shadowColor=rgba(P,1);ctx.shadowBlur=r*.04;ctx.fill();ctx.restore()}
 };
 })();
-  <script>
+<script>
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("/sw.js");
