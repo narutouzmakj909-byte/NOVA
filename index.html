@@ -1,5 +1,6 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>NOVA AI</title>
-<meta name="theme-color" content="#070b13">
+<meta name="theme-color" content="#070b13">  
+<link rel="manifest" href="/manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="NOVA">
 <link rel="icon" type="image/svg+xml" href="/nova-icon.svg">
@@ -1121,5 +1122,11 @@ draw=function(){
   const a=t*(.6+i*.25)*(state==='thinking'?3:1)+i*2;ctx.beginPath();ctx.arc(Math.cos(a)*rx,Math.sin(a)*ry,r*.011,0,TAUv);ctx.fillStyle=rgba(P,.95);ctx.shadowColor=rgba(P,1);ctx.shadowBlur=r*.04;ctx.fill();ctx.restore()}
 };
 })();
+  <script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js");
+  });
+}
 </script>
 </body></html>
