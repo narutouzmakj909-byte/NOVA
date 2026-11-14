@@ -1,7 +1,11 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>NOVA AI Preview</title>
-<meta name="theme-color" content="#05070d">
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>NOVA AI</title>
+<meta name="theme-color" content="#070b13">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="NOVA">
+<link rel="icon" type="image/svg+xml" href="/nova-icon.svg">
+<link rel="apple-touch-icon" href="/nova-icon.svg">
 <style>
-/* NOVA AI — Phase 1 UI: header, right drawer, designed pages. The Orb canvas code is unchanged from the original. Dark single look by design. */
+/* NOVA core interface and animated voice canvas. */
 :root{
   --bg:#05070d; --surface:#0b0f1a; --raised:#141a2b; --line:#222b44;
   --fg:#e6ecff; --dim:#9aa6c7; --cyan:#4dd6ff; --violet:#9b7bff; --err:#ff4d6d; --ok:#3cf2c5;
@@ -132,7 +136,6 @@ main{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;display:flex;flex-dir
 }
 .mic.on{opacity:1;cursor:pointer;border:0;transition:transform .15s,box-shadow .2s}.mic.on:active{transform:scale(.93)}.mic.live{box-shadow:0 0 0 3px #ff4d6d99}
 .rec{display:none;align-items:center;gap:6px;justify-content:center;font-size:12px;color:var(--err);margin-top:8px}.rec.on{display:flex}.rec::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--err);animation:pulse 1s infinite alternate}
-.vctl{display:flex;gap:8px;justify-content:center;margin-top:10px;flex-wrap:wrap}
 .btn{min-height:44px;padding:0 16px;border-radius:14px;border:1px solid var(--line);background:var(--surface);cursor:pointer;transition:transform .15s,box-shadow .2s,border-color .2s}
 .btn:hover{border-color:var(--cyan);box-shadow:var(--glow)}.btn:active{transform:scale(.95)}.btn:disabled{opacity:.45;cursor:not-allowed}
 .btn.pri{background:linear-gradient(135deg,var(--cyan),var(--violet));color:#05223a;font-weight:600;border:0}.btn.danger{border-color:var(--err);color:var(--err)}.btn.busy{opacity:.6;pointer-events:none}
@@ -145,10 +148,232 @@ main{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;display:flex;flex-dir
 #toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:40;background:#141a2b;border:1px solid var(--line);border-radius:14px;padding:10px 16px;max-width:90vw;font-size:13px}
 .avatar img{width:100%;height:100%;border-radius:50%;object-fit:cover}
 </style>
+<style>
+/* NOVA visual system */
+:root{
+  --bg:#070b13;--surface:#0d1421;--raised:#111c2c;--line:#243349;
+  --fg:#eef5ff;--dim:#92a3bd;--cyan:#67e8f9;--violet:#a78bfa;--err:#fb7185;--ok:#5eead4;
+  --glow:0 0 0 1px #67e8f933,0 12px 38px #0007,0 0 36px #22d3ee12;
+}
+html,body{min-height:100%;height:100%;height:100dvh}
+body{isolation:isolate;background:
+  radial-gradient(ellipse at 48% -14%,#142640 0,transparent 48%),
+  radial-gradient(ellipse at 110% 80%,#271c4a36,transparent 45%),
+  var(--bg);color:var(--fg);font-family:Inter,system-ui,sans-serif}
+body::before{z-index:-2;inset:-30vh -25vw;width:auto;height:auto;border-radius:0;filter:blur(0);opacity:.65;
+  background:
+    radial-gradient(ellipse at 13% 28%,#0c98ad23,transparent 32%),
+    radial-gradient(ellipse at 84% 40%,#7c3aed1c,transparent 34%);
+  animation:ambient-drift 24s ease-in-out infinite alternate}
+body::after{z-index:-1;inset:0;width:auto;height:auto;border-radius:0;filter:none;opacity:.12;
+  background-image:linear-gradient(#a8c3e908 1px,transparent 1px),linear-gradient(90deg,#a8c3e908 1px,transparent 1px);
+  background-size:56px 56px;mask-image:linear-gradient(to bottom,black,transparent 88%);animation:none}
+@keyframes ambient-drift{to{transform:translate3d(2vw,1vh,0) scale(1.04)}}
+header{position:relative;z-index:2;padding:14px 0 10px;border-bottom:1px solid #ffffff0b}
+.brand{display:flex;align-items:center;gap:11px;min-width:0}
+.brand-mark{position:relative;display:grid;place-items:center;width:38px;height:38px;border:1px solid #67e8f94a;border-radius:13px;
+  background:linear-gradient(145deg,#67e8f923,#a78bfa1c);box-shadow:inset 0 0 18px #67e8f911,0 0 24px #67e8f914;overflow:hidden}
+.brand-mark::after{position:absolute;content:"";inset:-55%;background:conic-gradient(from 0deg,transparent 0 70%,#67e8f955 84%,transparent 92%);animation:mark-orbit 8s linear infinite}
+.brand-mark svg{position:relative;z-index:1;width:25px;height:25px;fill:none;stroke:var(--cyan);stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round}
+@keyframes mark-orbit{to{transform:rotate(1turn)}}
+.wordmark{font-size:20px;letter-spacing:.34em;font-weight:600;animation:wordmark-glow 5s ease-in-out infinite alternate}
+@keyframes wordmark-glow{to{filter:drop-shadow(0 0 12px #67e8f988);background-position:100% 0}}
+.hright{gap:10px}
+.profile{border-color:#ffffff0a;background:#ffffff05}
+.profile:hover{background:#ffffff0b;border-color:#ffffff1c}
+.avatar{width:34px;height:34px;color:#06111a;background:linear-gradient(135deg,var(--cyan),#9b8bff);box-shadow:0 0 22px #67e8f932}
+.pname small{color:#9bacc4}
+.iconbtn{width:46px;height:46px;border-radius:15px;background:#111a28cc;border-color:#ffffff18;backdrop-filter:blur(14px)}
+.iconbtn:hover{border-color:#67e8f985;box-shadow:0 0 26px #67e8f925}
+main{width:min(100%,1160px);margin:0 auto;padding:0 clamp(2px,3vw,30px)}
+.view{position:relative}
+#status{display:inline-flex;align-self:center;align-items:center;gap:9px;width:max-content;margin:17px auto 0;
+  padding:7px 13px;border:1px solid #ffffff12;border-radius:999px;background:#0d1520bd;
+  color:#dce8f6;font:500 12px Inter,system-ui,sans-serif;letter-spacing:.035em}
+#status::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 12px currentColor}
+#status.err::before{background:var(--err)}
+.stage{min-height:clamp(230px,49vh,480px);overflow:visible}
+#orb{width:min(100%,min(58vh,490px));filter:drop-shadow(0 0 34px #21c6e82a)}
+.voice-intro{text-align:center;margin:17px auto 0;max-width:600px}
+.voice-intro .eyebrow,.eyebrow{font-size:10px;letter-spacing:.2em;text-transform:uppercase;font-weight:600;color:#89a1bc}
+.voice-intro h2{margin:7px 0 4px;font-size:clamp(21px,4vw,29px);letter-spacing:-.04em}
+.voice-intro p{margin:0;color:var(--dim);font-size:13px}
+.voice-controls{position:relative;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:7px;padding:6px 0 0}
+.mic{width:58px;height:58px;min-width:58px;min-height:58px;margin:0;border:1px solid #ffffff29;opacity:1;cursor:pointer;
+  background:#111b29;box-shadow:0 10px 28px #0005;transition:transform .2s,border-color .2s,background .2s,box-shadow .25s}
+.mic::before{inset:-8px;background:radial-gradient(closest-side,#67e8f92e,transparent);animation:mic-breathe 2.4s ease-in-out infinite alternate}
+.mic svg{width:21px;height:21px;fill:none;stroke:#c3d7eb;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+@keyframes mic-breathe{to{transform:scale(1.12);opacity:.6}}
+.mic.on{border:1px solid #67e8f96b;background:linear-gradient(145deg,#12313c,#18223d);box-shadow:0 0 0 1px #67e8f91c,0 0 32px #28d5ef24}
+.mic.on svg{stroke:var(--cyan)}
+.mic.live{background:linear-gradient(145deg,#164b52,#22244c);box-shadow:0 0 0 4px #5eead41a,0 0 38px #5eead433}
+.mic.live::before{background:radial-gradient(closest-side,#5eead43a,transparent)}
+.mic:hover{transform:translateY(-2px);border-color:#67e8f999}
+.mic:active{transform:scale(.95)}
+.mic-label{font-size:11px;font-weight:600;letter-spacing:.04em;color:#d7e4f1}
+.note{margin:2px 0 3px;color:#859ab4;font-size:12px}
+.note#tr{max-width:min(660px,96%);overflow-wrap:anywhere}
+.rec{font-size:11px;font-weight:500;color:var(--ok)}
+.rec::before{background:var(--ok);box-shadow:0 0 10px #5eead4}
+.chips{padding-bottom:10px;scrollbar-width:none}
+.chip{border-color:#ffffff14;background:#101a28;color:#b6c6d9}
+.chip:hover{border-color:#67e8f95e;box-shadow:0 0 20px #67e8f914}
+.chip[aria-pressed=true]{color:#07202b;background:linear-gradient(120deg,var(--cyan),#a5b4fc);border-color:transparent;box-shadow:0 5px 22px #67e8f922}
+:focus-visible{outline:2px solid #67e8f9;outline-offset:3px}
+.pad{gap:17px;padding:clamp(18px,3vw,32px) 0 36px}
+.page-heading{position:relative;padding:4px 0 8px}
+.page-heading .eyebrow{margin-bottom:7px}
+.page-heading h1{font-size:clamp(27px,5vw,38px);letter-spacing:-.05em}
+.page-heading p{margin:7px 0 0;color:var(--dim);font-size:14px}
+.page-heading::after{content:"";position:absolute;right:3%;top:4px;width:100px;height:100px;border-radius:50%;
+  background:radial-gradient(circle,#67e8f91c,transparent 68%);pointer-events:none}
+.hero{border:1px solid #ffffff13;border-radius:22px;padding:22px;background:
+  radial-gradient(ellipse at 92% 4%,#a78bfa1a,transparent 35%),
+  linear-gradient(145deg,#132137dc,#0b111de8);box-shadow:0 12px 38px #0002}
+.hero::before{right:-40px;top:-80px;width:180px;height:180px;background:radial-gradient(closest-side,#67e8f929,transparent);animation:pulse 5s ease-in-out infinite alternate}
+.hico{border-radius:15px;background:linear-gradient(145deg,#67e8f923,#a78bfa20);border-color:#67e8f942}
+.hico svg{fill:none;stroke:var(--cyan);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.hero h1{font-size:clamp(24px,4vw,32px);letter-spacing:-.04em}
+.hero p{max-width:650px;color:#9db0c7;font-size:14px}
+.badge{color:var(--violet);background:#a78bfa12;border-color:#a78bfa33}
+.badge.live{color:var(--ok);background:#5eead411;border-color:#5eead433}
+.cards{grid-template-columns:repeat(auto-fit,minmax(min(100%,270px),1fr));gap:12px}
+.fcard{position:relative;overflow:hidden;min-height:110px;gap:13px;padding:16px;border-color:#ffffff12;border-radius:17px;
+  background:linear-gradient(145deg,#111b29e8,#0d1521e8);opacity:1;transition:transform .2s,border-color .2s,box-shadow .2s}
+.fcard:hover{transform:translateY(-2px);border-color:#67e8f937;box-shadow:0 12px 26px #0003}
+.fdot{background:#67e8f910;border-color:#67e8f925;border-radius:12px}
+.fdot svg{fill:none;stroke:var(--cyan);stroke-width:1.65;stroke-linecap:round;stroke-linejoin:round}
+.fcard h3{font-size:14px;font-weight:600}
+.fcard p{color:#95a8c0}
+.fcard .st{border-color:#ffffff17;color:#aab9cb}
+.empty{border-color:#ffffff19;border-radius:18px;background:linear-gradient(140deg,#101a28b5,#0a111baa);color:#9aacc2}
+.empty .ring{border-color:#67e8f925;border-top-color:var(--cyan)}
+.sec{gap:13px;padding:18px;border-color:#ffffff14;border-radius:18px;background:linear-gradient(145deg,#111b2adf,#0c1421ed);box-shadow:0 12px 30px #0001}
+.sec>.label{padding-bottom:9px;border-bottom:1px solid #ffffff0b}
+.label{color:#91a5bd;font-size:10px;letter-spacing:.16em}
+.row{padding:9px 0}
+.sw{background:#314156}
+.sw:checked{background:linear-gradient(100deg,#46cbe0,#9a8bff);box-shadow:0 0 16px #67e8f937}
+.btn{border-color:#ffffff18;background:#142032;color:#dce8f5;border-radius:13px;transition:transform .18s,border-color .2s,box-shadow .2s,background .2s}
+.btn:hover{border-color:#67e8f966;box-shadow:0 0 22px #67e8f915}
+.btn:active{transform:scale(.97)}
+.btn.pri{color:#071820;background:linear-gradient(110deg,#67e8f9,#a5b4fc);box-shadow:0 6px 20px #67e8f91a}
+.btn.danger{color:#ff9cab;border-color:#fb71854d;background:#fb718510}
+.t{border-color:#ffffff18;background:#0a111ce8;color:var(--fg);border-radius:13px;outline-color:#67e8f9}
+.t:focus{border-color:#67e8f97a;box-shadow:0 0 0 3px #67e8f912}
+.cmp{align-items:stretch}
+.msg{position:relative;max-width:min(84%,700px);padding:12px 15px;border-radius:17px;line-height:1.6;animation:message-in .3s cubic-bezier(.2,.8,.2,1) both}
+.msg.user{color:#e5faff;background:linear-gradient(140deg,#16414d99,#26345a99);border-color:#67e8f92e;border-bottom-right-radius:5px}
+.msg.assistant{background:linear-gradient(145deg,#121d2b,#0e1724);border-color:#ffffff13;border-bottom-left-radius:5px}
+.msg.assistant::before{content:"N";display:inline-grid;place-items:center;width:20px;height:20px;margin:-2px 7px 0 -3px;border-radius:7px;
+  background:linear-gradient(140deg,#67e8f926,#a78bfa26);color:var(--cyan);font:600 10px Inter,system-ui,sans-serif;vertical-align:middle}
+@keyframes message-in{from{opacity:0;transform:translateY(7px)}}
+.msgs{flex:1;min-height:160px;max-height:min(52vh,540px);overflow-y:auto;padding:4px 3px 12px;scrollbar-color:#30425a transparent;scrollbar-width:thin}
+.chat-empty{display:grid;justify-items:center;gap:10px;padding:38px 18px;text-align:center;border:1px dashed #ffffff1c;border-radius:19px;background:#0c15228a}
+.chat-empty .brand-mark{width:48px;height:48px}
+.chat-empty b{font:600 16px var(--display)}
+.chat-empty span{color:var(--dim);font-size:13px}
+.chat-meta{display:flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid #ffffff10;border-radius:13px;background:#0d1724;color:#a9bbcf;font-size:12px}
+.chat-meta .status-dot{width:7px;height:7px}
+.provider-tag{margin-left:auto;padding:3px 8px;border:1px solid #67e8f927;border-radius:999px;color:#aeeef6;font-size:10px;text-transform:capitalize}
+.pad:has(.chat-compose){flex:1;min-height:0;overflow:hidden}
+#v-page:has(.chat-compose){flex:1;min-height:0}
+.chat-compose{position:sticky;bottom:0;z-index:1;padding:8px 0 0;background:linear-gradient(180deg,transparent,var(--bg) 20%)}
+.chat-compose .cmp{padding:7px;border:1px solid #ffffff18;border-radius:17px;background:#101a28;box-shadow:0 12px 36px #0004}
+.chat-compose .t{min-height:48px;border:0;background:transparent;box-shadow:none}
+.chat-compose .btn{min-width:78px}
+.item{border-color:#ffffff14;border-radius:14px;background:#111b29}
+.item.done{opacity:.7}
+#scrim{background:#02060ccc;backdrop-filter:blur(8px)}
+#drawer{width:min(88vw,360px);background:linear-gradient(155deg,#101a29f5,#080d16f7);border-left:1px solid #ffffff17;
+  box-shadow:-30px 0 90px #0009;backdrop-filter:blur(22px)}
+.dhead{padding:8px 4px 14px;border-bottom:1px solid #ffffff0d}
+.dnav{padding-top:6px}
+.dgroup{margin:17px 9px 7px;color:#73869f}
+.ditem{position:relative;gap:13px;min-height:50px;margin:3px 0;padding:10px 13px;border-radius:14px;color:#9caec4;font-size:14px}
+.ditem svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.65;stroke-linecap:round;stroke-linejoin:round}
+.ditem:hover{color:#eff8ff;background:#ffffff09}
+.ditem[aria-current=page]{color:#b8f6ff;background:linear-gradient(100deg,#67e8f91c,#a78bfa12);border-color:#67e8f923;
+  box-shadow:inset 3px 0 0 var(--cyan),0 8px 22px #0002}
+#toast{bottom:calc(24px + env(safe-area-inset-bottom,0px));color:#ecf5ff;border-color:#ffffff1c;background:#152133f5;box-shadow:0 16px 40px #0008;backdrop-filter:blur(16px)}
+.launch-screen{position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:
+  radial-gradient(ellipse at center,#13253d 0,transparent 43%),#070b13;
+  opacity:1;visibility:visible;transition:opacity .38s ease,visibility .38s ease}
+.launch-screen.exit{opacity:0;visibility:hidden;pointer-events:none}
+.launch-card{display:grid;justify-items:center;gap:13px;animation:launch-rise .65s cubic-bezier(.2,.8,.2,1) both}
+.launch-icon{display:grid;place-items:center;width:76px;height:76px;border:1px solid #67e8f957;border-radius:25px;
+  background:linear-gradient(145deg,#67e8f928,#a78bfa20);box-shadow:0 0 65px #67e8f92d,inset 0 0 22px #67e8f916}
+.launch-icon svg{width:45px;height:45px;fill:none;stroke:#8ff2ff;stroke-width:1.3;stroke-linecap:round;stroke-linejoin:round}
+.launch-word{font:600 19px var(--display);letter-spacing:.42em;padding-left:.42em;color:#e9f5ff}
+.launch-line{width:72px;height:2px;overflow:hidden;border-radius:4px;background:#ffffff16}
+.launch-line::after{content:"";display:block;width:40%;height:100%;background:linear-gradient(90deg,var(--cyan),var(--violet));animation:launch-progress .7s ease-out both}
+@keyframes launch-rise{from{opacity:0;transform:translateY(10px) scale(.96)}}
+@keyframes launch-progress{from{transform:translateX(-120%)}to{transform:translateX(250%)}}
+.settings-grid{display:grid;gap:14px;grid-template-columns:repeat(2,minmax(0,1fr))}
+.settings-grid .span-all{grid-column:1/-1}
+.setting-copy{display:flex;flex-direction:column;gap:3px;min-width:0}
+.setting-copy strong{font-size:13px;font-weight:600}
+.setting-copy small,.helper{color:#8ea2bb;font-size:12px}
+.setting-field{display:grid;gap:8px}
+.range-row{display:grid;grid-template-columns:1fr auto;align-items:center;gap:8px}
+.range-row input{grid-column:1/-1;width:100%;accent-color:#67e8f9}
+.value-pill{padding:3px 8px;border:1px solid #ffffff17;border-radius:999px;color:#b9d2e2;font-size:11px}
+.status-panel{display:flex;align-items:center;gap:9px;padding:11px 12px;border:1px solid #ffffff10;border-radius:12px;background:#0a121e}
+.status-dot{width:8px;height:8px;border-radius:50%;background:#74869d;flex:none}
+.status-dot.ready{background:var(--ok);box-shadow:0 0 11px #5eead477}
+.status-dot.missing{background:#fbbf24;box-shadow:0 0 11px #fbbf2433}
+.status-panel span{font-size:12px;color:#9db0c7}
+.settings-actions{display:flex;flex-wrap:wrap;gap:9px}
+.sec>label:not(.row),.sec .setting-field{display:grid;gap:8px}
+.sec input[type=file],.sec input[type=datetime-local],.sec textarea{width:100%}
+.sec input[type=range]{accent-color:var(--cyan)}
+@media(max-width:700px){
+  body{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+  header{padding-top:10px;padding-bottom:8px}
+  .brand-mark{width:34px;height:34px;border-radius:12px}
+  .wordmark{font-size:18px;letter-spacing:.3em}
+  .profile{padding-right:3px}
+  .pname{display:none}
+  main{padding:0 2px}
+  #status{margin-top:13px}
+  .stage{min-height:clamp(210px,39vh,360px)}
+  #orb{width:min(100%,min(43vh,380px))}
+  .voice-intro{margin-top:4px}
+  .voice-intro h2{font-size:22px}
+  .pad{gap:14px;padding-top:19px}
+  .hero{padding:18px}
+  .settings-grid{grid-template-columns:1fr}
+  .settings-grid .span-all{grid-column:auto}
+  .msgs{max-height:none;min-height:0}
+  #v-page.on:has(.chat-compose){height:100%;overflow:hidden}
+  #v-page.on:has(.chat-compose)>.pad{height:100%;min-height:0;overflow:hidden}
+  #v-page.on:has(.chat-compose) .msgs{min-height:90px}
+  .chat-compose{padding-bottom:calc(5px + env(safe-area-inset-bottom,0px))}
+  .chat-compose .cmp{gap:4px}
+  .chat-compose .btn{min-width:64px;padding:0 12px}
+  .msg{max-width:92%}
+  .ditem{min-height:52px}
+}
+@media(max-height:700px) and (min-width:701px){
+  .stage{min-height:220px}
+  #orb{width:min(100%,38vh,360px)}
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
+body.reduce-motion::before,.reduce-motion .brand-mark::after,.reduce-motion .mic::before{animation:none!important}
+body.reduce-motion *,body.reduce-motion *::before,body.reduce-motion *::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+</style>
 </head><body>
 
+<div class="launch-screen" id="launch" aria-hidden="true">
+  <div class="launch-card"><div class="launch-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="13"></circle><ellipse cx="24" cy="24" rx="21" ry="8" transform="rotate(-32 24 24)"></ellipse><path d="m24 16 2.3 5.7L32 24l-5.7 2.3L24 32l-2.3-5.7L16 24l5.7-2.3L24 16Z"></path><circle cx="39" cy="13" r="1.4" fill="currentColor" stroke="none"></circle></svg></div><div class="launch-word">NOVA</div><div class="launch-line"></div></div>
+</div>
 <header>
-  <h1 class="wordmark" aria-label="NOVA">NOVA</h1>
+  <h1 class="brand" aria-label="NOVA">
+    <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="13"></circle><ellipse cx="24" cy="24" rx="21" ry="8" transform="rotate(-32 24 24)"></ellipse><path d="m24 16 2.3 5.7L32 24l-5.7 2.3L24 32l-2.3-5.7L16 24l5.7-2.3L24 16Z"></path><circle cx="39" cy="13" r="1.4" fill="currentColor" stroke="none"></circle></svg></span>
+    <span class="wordmark">NOVA</span>
+  </h1>
   <div class="hright">
     <button class="profile" id="prof" aria-label="Profile and language">
       <span class="avatar" aria-hidden="true">N</span>
@@ -162,10 +387,14 @@ main{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;display:flex;flex-dir
   <section class="view on" id="v-voice">
     <div id="status" aria-live="polite">Ready</div>
     <div class="stage"><canvas id="orb" aria-label="Animated NOVA core"></canvas></div>
-    <button class="mic on" id="micBtn" aria-label="Start or stop voice mode"><svg viewBox="0 0 24 24"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11z"/></svg></button>
-    <div class="rec" id="rec">Microphone active</div>
-    <div class="vctl" id="vctl" hidden><button class="btn" id="bPause"></button><button class="btn" id="bMute"></button><button class="btn danger" id="bStop"></button></div>
-    <div class="note" id="vnote"></div><div class="note" id="tr" aria-live="polite" style="min-height:1.5em"></div>
+    <div class="voice-intro"><div class="eyebrow">Your personal intelligence</div><h2>How can I help?</h2><p>Speak naturally. NOVA is ready when you are.</p></div>
+    <div class="voice-controls">
+      <button class="mic on" id="micBtn" aria-label="Start listening" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11Z"/></svg></button>
+      <span class="mic-label" id="micLabel">Tap to talk</span>
+      <div class="rec" id="rec">Listening</div>
+      <div class="note" id="vnote"></div>
+      <div class="note" id="tr" aria-live="polite" style="min-height:1.5em"></div>
+    </div>
   </section>
   <section class="view" id="v-page"></section>
 </main>
@@ -188,7 +417,11 @@ const S={
  error:{l:'Something went wrong',p:[255,77,109],s:[255,154,77],spin:.05,waves:0,scan:0,rings:0,glitch:1}
 };
 const cv=document.getElementById('orb'),ctx=cv.getContext('2d');
-const opts={reduced:matchMedia('(prefers-reduced-motion: reduce)').matches,count:40};
+let savedVisual={};try{savedVisual=JSON.parse(localStorage.getItem('nova.visual')||'{}')}catch{}
+const opts={reduced:typeof savedVisual.reduced==='boolean'?savedVisual.reduced:matchMedia('(prefers-reduced-motion: reduce)').matches,count:[20,40,70].includes(savedVisual.count)?savedVisual.count:40};
+document.body.classList.toggle('reduce-motion',opts.reduced);
+const launch=document.getElementById('launch');
+try{if(sessionStorage.getItem('nova.launchSeen'))launch.classList.add('exit');else{sessionStorage.setItem('nova.launchSeen','1');setTimeout(()=>launch.classList.add('exit'),760)}}catch{setTimeout(()=>launch.classList.add('exit'),760)}
 let state='idle',cur=JSON.parse(JSON.stringify(S.idle)),time=0,phase=0,amp=0,last=0,parts=[],W=0;
 function seed(){let x=7;const r=()=>(x=(x*16807)%2147483647)/2147483647;
  parts=Array.from({length:opts.count},()=>({a:r()*6.283,rad:.55+r()*.4,sp:.4+r()*.9,sz:.006+r()*.01,ph:r()*6.28}));}
@@ -271,7 +504,7 @@ const svg=k=>`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${ic[k]}"/></
 document.getElementById('menuBtn').innerHTML=svg('menu');
 document.getElementById('closeBtn').innerHTML=svg('close');
 
-// Planned pages: honest status, designed layout. Nothing here is wired to a backend yet.
+// Keep the existing planned pages and their honest availability labels.
 const PAGES={
  chat:{t:'Chat',i:'chat',ph:3,tag:'Text conversation with the same assistant and memory as voice.',
   f:[['Same assistant as voice','One conversation, whether you type or speak.','chat'],['History across providers','Your history stays when you switch AI providers.','mem']],
@@ -336,15 +569,63 @@ function planned(p){
  ${p.composer?`<div class="composer" aria-hidden="true"><input disabled placeholder="Chat is not connected yet"><button disabled tabindex="-1"></button></div>`:''}
  <div class="empty"><div class="ring"></div>${p.e}</div></div>`;}
 function settings(){
- vP.innerHTML=`<div class="pad"><div class="hero"><div class="hico">${svg('cog')}</div><h1>Settings</h1><p>Make the Orb calmer or richer.</p><span class="badge live">Animation settings work now</span></div>
- <div class="sec"><div class="label">Animation</div>
-  <label class="row"><span>Reduced motion<br><span class="dim" style="font-size:12px">Slower, calmer orb. Saves battery.</span></span><input class="sw" type="checkbox" id="rm" ${opts.reduced?'checked':''}></label>
-  <div>Particle density</div><div class="chips" id="dens" style="padding:0"></div>
-  <div class="dim" style="font-size:12px">Settings reset when you close this page.</div></div>
- <div class="sec"><div class="label">Not built yet</div><ul class="plist"><li>Automatic spoken replies, mute and stop · Phase 2</li><li>Voice and language · Phase 2</li><li>AI providers · Phase 3</li><li>Memory and privacy · Phase 3</li><li>Notifications · Phase 4</li><li>Permissions and emergency stop · Phase 5</li></ul></div></div>`;
- document.getElementById('rm').onchange=e=>{opts.reduced=e.target.checked;};
- const d=document.getElementById('dens');[['Low',20],['Medium',40],['High',70]].forEach(([n,c])=>{const b=document.createElement('button');b.className='chip';b.textContent=n;b.setAttribute('aria-pressed',opts.count===c);
-  b.onclick=()=>{opts.count=c;seed();d.querySelectorAll('.chip').forEach(x=>x.setAttribute('aria-pressed',x===b));};d.append(b);});}
+ const providers=['openrouter','openai','claude','gemini','deepseek','groq'];
+ vP.innerHTML=`<div class="pad">
+  <div class="page-heading"><div class="eyebrow">Personalize NOVA</div><h1>Settings</h1><p>Your assistant, your preferences. Changes are saved on this device.</p></div>
+  <div class="settings-grid">
+   <section class="sec"><div class="label">Appearance & motion</div>
+    <label class="row"><span class="setting-copy"><strong>Reduced motion</strong><small>Keep the interface calm and conserve battery.</small></span><input class="sw" type="checkbox" id="rm" ${opts.reduced?'checked':''} aria-label="Reduced motion"></label>
+    <div class="setting-copy"><strong>Orb particle detail</strong><small>Adjust visual detail and rendering load.</small></div>
+    <div class="chips" id="dens" style="padding:0"></div>
+   </section>
+   <section class="sec"><div class="label">AI connection</div>
+    <label class="setting-field"><span class="setting-copy"><strong>Preferred provider</strong><small>Choose a provider configured on your NOVA server.</small></span>
+     <select class="t" id="provider">${providers.map(p=>`<option value="${p}" ${cfg.provider===p?'selected':''}>${p==='openrouter'?'OpenRouter':p[0].toUpperCase()+p.slice(1)}</option>`).join('')}</select></label>
+    <div class="settings-actions"><button class="btn" id="tb" type="button">Test selected provider</button></div>
+    <div class="status-panel"><i class="status-dot" id="providerDot"></i><span id="pst" aria-live="polite">Checking server configuration…</span></div>
+   </section>
+   <section class="sec"><div class="label">Voice & playback</div>
+    <label class="setting-field"><span class="setting-copy"><strong>Voice engine</strong><small>Use the configured voice service for spoken replies.</small></span>
+     <select class="t" id="ttsProvider"><option value="elevenlabs" ${cfg.ttsProvider==='elevenlabs'?'selected':''}>ElevenLabs</option><option value="somali" ${cfg.ttsProvider==='somali'?'selected':''}>Somali · TextReadTTS</option></select></label>
+    <label class="range-row"><span class="setting-copy"><strong>Speech speed</strong><small>Set the pace of NOVA’s voice.</small></span><output class="value-pill" id="speedValue">${Number(cfg.speed).toFixed(2)}×</output><input type="range" id="speed" min=".7" max="1.2" step=".05" value="${cfg.speed}" aria-label="Speech speed"></label>
+    <label class="range-row"><span class="setting-copy"><strong>Reply volume</strong><small>Adjust spoken response volume.</small></span><output class="value-pill" id="volumeValue">${Math.round(cfg.vol*100)}%</output><input type="range" id="volume" min="0" max="1" step=".05" value="${cfg.vol}" aria-label="Reply volume"></label>
+    <label class="row"><span class="setting-copy"><strong>Speak chat replies</strong><small>Read typed-chat responses aloud.</small></span><input class="sw" type="checkbox" id="speakChat" ${cfg.speakChat?'checked':''} aria-label="Speak chat replies"></label>
+    <p class="helper">Voice mode stays ready while NOVA speaks. If you start talking, NOVA stops and listens.</p>
+   </section>
+   <section class="sec"><div class="label">Memory & safety</div>
+    <label class="row"><span class="setting-copy"><strong>Use saved memory</strong><small>Include your approved memories in AI replies.</small></span><input class="sw" type="checkbox" id="memoryEnabled" ${cfg.mem?'checked':''} aria-label="Use saved memory"></label>
+    <div class="settings-actions"><button class="btn danger" id="emergencyStop" type="button">Emergency stop</button><button class="btn danger" id="deleteData" type="button">Delete all device data</button></div>
+    <p class="helper">Chat history, profile, tasks and memories are stored in this browser.</p>
+   </section>
+  </div>
+ </div>`;
+ const saveVisual=()=>{try{localStorage.setItem('nova.visual',JSON.stringify({reduced:opts.reduced,count:opts.count}))}catch{toast('Could not save appearance settings.')};document.body.classList.toggle('reduce-motion',opts.reduced)};
+ document.getElementById('rm').onchange=e=>{opts.reduced=e.target.checked;saveVisual()};
+ const density=document.getElementById('dens');
+ [['Low',20],['Balanced',40],['High',70]].forEach(([label,count])=>{const b=document.createElement('button');b.className='chip';b.type='button';b.textContent=label;b.setAttribute('aria-pressed',opts.count===count);
+  b.onclick=()=>{opts.count=count;seed();saveVisual();density.querySelectorAll('.chip').forEach(x=>x.setAttribute('aria-pressed',x===b?'true':'false'))};density.append(b)});
+ document.getElementById('provider').onchange=e=>{cfg.provider=e.target.value;sv('cfg',cfg);showProviderStatus()};
+ document.getElementById('ttsProvider').onchange=e=>{cfg.ttsProvider=e.target.value;sv('cfg',cfg)};
+ document.getElementById('speed').oninput=e=>{cfg.speed=+e.target.value;document.getElementById('speedValue').value=cfg.speed.toFixed(2)+'×';sv('cfg',cfg)};
+ document.getElementById('volume').oninput=e=>{cfg.vol=+e.target.value;document.getElementById('volumeValue').value=Math.round(cfg.vol*100)+'%';sv('cfg',cfg)};
+ document.getElementById('speakChat').onchange=e=>{cfg.speakChat=e.target.checked;sv('cfg',cfg)};
+ document.getElementById('memoryEnabled').onchange=e=>{cfg.mem=e.target.checked;sv('cfg',cfg)};
+ document.getElementById('tb').onclick=testProv;
+ document.getElementById('emergencyStop').onclick=stopAll;
+ document.getElementById('deleteData').onclick=()=>{if(confirm('Delete ALL local NOVA data?')){Object.keys(localStorage).filter(k=>k.startsWith('nova.')).forEach(k=>localStorage.removeItem(k));location.reload()}};
+ let providerSnapshot=null,providerError=false;
+ function showProviderStatus(){
+  const dot=document.getElementById('providerDot'),label=document.getElementById('pst');if(!dot||!label)return;
+  dot.classList.remove('ready','missing');
+  if(providerError){label.textContent='Could not reach the NOVA backend.';return}
+  if(!providerSnapshot){label.textContent='Checking server configuration…';return}
+  const configured=Object.entries(providerSnapshot.providers||{}).filter(([,ready])=>ready).map(([name])=>name);
+  const selected=!!providerSnapshot.providers?.[cfg.provider];dot.classList.add(selected?'ready':'missing');
+  label.textContent=selected?`${cfg.provider} is configured · ${configured.length} provider${configured.length===1?'':'s'} ready`:`${cfg.provider} is not configured · ${configured.length} provider${configured.length===1?'':'s'} ready`;
+  label.title='Also available: '+(configured.join(', ')||'none');
+ }
+ fetch(API_BASE+'/api/status').then(r=>{if(!r.ok)throw new Error(t('net'));return r.json()}).then(data=>{providerSnapshot=data;showProviderStatus()}).catch(()=>{providerError=true;showProviderStatus()});
+}
 function go(id){window.PG=id;
  dnav.querySelectorAll('.ditem').forEach(b=>{if(b.dataset.id===id)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
  vV.classList.toggle('on',id==='voice');vP.classList.toggle('on',id!=='voice');
@@ -364,47 +645,51 @@ const sv=(k,v)=>{try{localStorage.setItem('nova.'+k,JSON.stringify(v))}catch{toa
 let cfg=Object.assign({name:'NOVA User',lang:'en',provider:'openrouter',ttsProvider:'elevenlabs',speed:1,vol:1,mem:true,pic:'',speakChat:false,barge:false},ld('cfg',{}));
 if(cfg.provider==='openai'){cfg.provider='openrouter';sv('cfg',cfg)}
 let msgs=ld('msgs',[]),mem=ld('mem',[]),tasks=ld('tasks',[]),rem=ld('rem',[]),res=ld('res',[]);
-const I={en:{idle:'Ready',listening:'Listening',thinking:'Thinking',searching:'Searching',speaking:'Speaking',error:'Something went wrong',note:'Tap the mic to start voice mode. NOVA listens only while the red dot is on.',on:'Microphone is ON. Just talk.',pause:'Pause',resume:'Resume',mute:'Mute',unmute:'Unmute',stop:'Stop',net:'Cannot reach the NOVA backend. Is server.js running?',mic:'Microphone permission was denied. Allow it in your browser or Android settings.',nosr:'Speech recognition is not supported in this browser. Use Chrome.'},
- so:{idle:'Diyaar',listening:'Waan dhegaysanayaa',thinking:'Waan fekerayaa',searching:'Waan raadinayaa',speaking:'Waan hadlayaa',error:'Khalad ayaa dhacay',note:'Taabo mikrafoonka si aad u bilowdo. NOVA wuxuu dhegaystaa kaliya markii dhibicda cas shidan tahay.',on:'Mikrafoonku waa shidan yahay. Hadal.',pause:'Hakad',resume:'Sii wad',mute:'Aamusii',unmute:'Hadal',stop:'Jooji',net:'Server-ka NOVA lagama gaari karo.',mic:'Oggolaanshaha mikrafoonka waa la diiday.',nosr:'Browser-kan ma taageero aqoonsiga codka.'}};
+const I={en:{idle:'Ready',listening:'Listening',thinking:'Thinking',searching:'Searching',speaking:'Speaking',error:'Something went wrong',note:'Tap the microphone to start. NOVA listens while voice mode is on.',on:'Listening is on. Speak naturally.',net:'Cannot reach the NOVA backend. Is server.js running?',mic:'Microphone permission was denied. Allow it in your browser or Android settings.',nosr:'Speech recognition is not supported in this browser. Use Chrome.'},
+ so:{idle:'Diyaar',listening:'Waan dhegaysanayaa',thinking:'Waan fekerayaa',searching:'Waan raadinayaa',speaking:'Waan hadlayaa',error:'Khalad ayaa dhacay',note:'Taabo mikrafoonka si aad u bilowdo. NOVA wuu ku dhegaysanayaa inta codku shidan yahay.',on:'Dhegaystuhu waa shidan yahay. Hadal.',net:'Server-ka NOVA lagama gaari karo.',mic:'Oggolaanshaha mikrafoonka waa la diiday.',nosr:'Browser-kan ma taageero aqoonsiga codka.'}};
 const t=k=>(I[cfg.lang]||I.en)[k]||I.en[k]||k, lab=s=>t(s);
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-const A={voice:false,paused:false,muted:false,rec:null,busy:false,gen:0,audio:null,abort:null,retry:0};
+const A={voice:false,rec:null,busy:false,gen:0,audio:null,abort:null,retry:0};
 function toast(m){let e=$('#toast');if(!e){e=document.createElement('div');e.id='toast';document.body.append(e)}e.textContent=m;e.hidden=false;clearTimeout(e._t);e._t=setTimeout(()=>e.hidden=true,4000)}
 function updHeader(){$('.pname b').textContent=cfg.name;$('.pname small').textContent=cfg.lang==='so'?'Soomaali':'English';
  $('.avatar').innerHTML=cfg.pic?`<img alt="" src="${cfg.pic}">`:esc((cfg.name||'N')[0].toUpperCase())}
-function micUI(){const live=A.voice&&!A.paused;$('#micBtn').classList.toggle('live',live);$('#rec').classList.toggle('on',live);$('#vctl').hidden=!A.voice;
- $('#bPause').textContent=A.paused?t('resume'):t('pause');$('#bMute').textContent=A.muted?t('unmute'):t('mute');$('#bStop').textContent=t('stop');
- $('#vnote').textContent=A.voice?(live?t('on'):t('pause')):t('note')}
+function micUI(){const live=A.voice,button=$('#micBtn');button.classList.toggle('live',live);button.classList.toggle('on',live);
+ button.setAttribute('aria-pressed',String(live));button.setAttribute('aria-label',live?'Turn listening off':'Start listening');
+ $('#micLabel').textContent=live?'Tap to turn listening off':'Tap to talk';
+ $('#rec').classList.toggle('on',live);$('#rec').textContent=state==='speaking'?'Listening while NOVA speaks':'Listening';
+ $('#vnote').textContent=live?t('on'):t('note')}
 const API_BASE='https://nova-2tv2.onrender.com';
 async function api(url,body,n=1){try{const r=await fetch(API_BASE+url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
  if(!r.ok){const d=await r.json().catch(()=>({}));throw Object.assign(new Error(d.error||'Server error '+r.status),{status:r.status})}return r}
  catch(e){if(n>0&&(e instanceof TypeError||e.status>=502)){await new Promise(z=>setTimeout(z,800));return api(url,body,n-1)}
   throw e instanceof TypeError?new Error(t('net')):e}}
 function fail(e){const m=(e&&e.message)||String(e);setState('error');status.textContent=m.slice(0,90);toast(m);clearTimeout(A.et);A.et=setTimeout(()=>{if(state==='error')settle()},3500)}
-function settle(){A.busy=false;if(A.voice&&!A.paused)listen();else setState('idle');micUI()}
+function settle(){A.busy=false;if(A.voice)listen();else setState('idle');micUI()}
 // --- listening ---
-function listen(){if(!A.voice||A.paused||A.rec||A.busy)return;if(state==='speaking'&&!cfg.barge)return;
+function listen(){if(!A.voice||A.rec||A.busy)return;
  if(!SR){stopVoice();return fail(new Error(t('nosr')))}
  const r=new SR();A.rec=r;r.lang=cfg.lang==='so'?'so-SO':'en-US';r.interimResults=true;r.continuous=false;let fin='',tmp='';
  r.onstart=()=>{if(state!=='speaking')setState('listening');micUI()};
- r.onresult=e=>{if(state==='speaking')interrupt();fin='';tmp='';for(const x of e.results){if(x.isFinal)fin+=x[0].transcript;else tmp+=x[0].transcript}$('#tr').textContent=fin||tmp;if(fin.trim())A.heard=fin.trim()};
+ r.onresult=e=>{fin='';tmp='';for(const x of e.results){if(x.isFinal)fin+=x[0].transcript;else tmp+=x[0].transcript}
+  const heard=(fin||tmp).trim();if(state==='speaking'&&heard)interrupt();$('#tr').textContent=heard;
+  if(fin.trim())A.heard=fin.trim()};
  r.onerror=e=>{A.rerr=e.error};
  r.onend=()=>{A.rec=null;const err=A.rerr,text=A.heard;A.rerr=A.heard=null;
   if(err==='not-allowed'||err==='service-not-allowed'){stopVoice();return fail(new Error(t('mic')))}
   if(err==='network'){stopVoice();return fail(new Error('Speech recognition needs an internet connection.'))}
   if(err&&err!=='no-speech'&&err!=='aborted'){if(++A.retry>3){stopVoice();return fail(new Error('Speech recognition failed: '+err))}}else A.retry=0;
-  if(text)turn(text);else if(A.voice&&!A.paused&&!A.busy)setTimeout(listen,300)};
+  if(text)turn(text);else if(A.voice&&!A.busy)setTimeout(listen,300)};
  try{r.start()}catch{A.rec=null}}
-function startVoice(){A.voice=true;A.paused=false;A.retry=0;micUI();listen()}
-function stopVoice(){A.voice=false;A.paused=false;A.gen++;A.busy=false;if(A.rec){try{A.rec.abort()}catch{}}stopSpeech();setState('idle');micUI()}
-function interrupt(){A.gen++;stopSpeech();A.busy=false;if(state==='speaking')setState(A.voice&&!A.paused?'listening':'idle')}
+function startVoice(){A.voice=true;A.retry=0;micUI();listen()}
+function stopVoice(){A.voice=false;A.gen++;A.busy=false;if(A.rec){try{A.rec.abort()}catch{}}stopSpeech();setState('idle');micUI()}
+function interrupt(){A.gen++;stopSpeech();A.busy=false;if(state==='speaking')setState(A.voice?'listening':'idle');micUI()}
 // --- speaking (ElevenLabs / Somali TextReadTTS via backend only) ---
 function stopSpeech(){if(A.abort)A.abort.abort();if(A.audio){A.audio.pause();A.audio=null}}
-async function speakAll(text,g){if(A.muted)return;const parts=text.match(/[^.!?\n]+[.!?]*\s*/g)||[text],ch=[];let c='';
+async function speakAll(text,g){if(!cfg.vol)return;const parts=text.match(/[^.!?\n]+[.!?]*\s*/g)||[text],ch=[];let c='';
  for(const p of parts){if((c+p).length>600&&c){ch.push(c);c=''}c+=p}if(c.trim())ch.push(c);
- A.busy=false;setState('speaking');if(A.voice)listen();
+ A.busy=false;setState('speaking');if(A.voice)listen();micUI();
  const somali=cfg.ttsProvider==='somali';
- for(const part of ch){if(g!==A.gen||A.muted)return;A.abort=new AbortController();
+ for(const part of ch){if(g!==A.gen||!cfg.vol)return;A.abort=new AbortController();
   const endpoint=somali?'/api/tts/somali':'/api/tts';
   const body=somali?{text:part}:{text:part,speed:cfg.speed};
   const r=await fetch(API_BASE+endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:A.abort.signal}).catch(e=>{if(e.name==='AbortError')return null;throw new Error(t('net'))});
@@ -429,11 +714,11 @@ async function turn(text){const g=++A.gen;stopSpeech();A.busy=true;if(A.rec){try
   if(g===A.gen)settle()}catch(e){if(g===A.gen){A.busy=false;fail(e)}}}
 function stopAll(){stopVoice();stopShare();toast('Everything stopped.')}
 // --- pages ---
-const R={},hd=(a,b)=>`<div class="hero"><h1>${a}</h1><p>${b}</p></div>`,empty=m=>`<div class="empty">${m}</div>`;
+const R={},hd=(a,b)=>`<div class="page-heading"><div class="eyebrow">NOVA · Personal assistant</div><h1>${a}</h1><p>${b}</p></div>`,empty=m=>`<div class="empty">${m}</div>`;
 const mh=m=>`<div class="msg ${m.role}">${esc(m.content)}${m.sources&&m.sources.length?`<div class="src">${m.sources.map((s,i)=>`[${i+1}] <a target="_blank" rel="noopener" href="${esc(s.url)}">${esc(s.title)}</a>`).join('<br>')}</div>`:''}</div>`;
 function render(id){const f=R[id];if(!f)return;if(id==='settings'){vP.innerHTML='';}
  const h=f();if(h!=null)vP.innerHTML='<div class="pad">'+h+'</div>';const m=$('#msgs');if(m)m.lastElementChild&&m.lastElementChild.scrollIntoView()}
-R.chat=()=>hd('Chat','Same NOVA as voice, same history.')+`<div class="msgs" id="msgs">${msgs.length?msgs.map(mh).join(''):empty('No messages yet. Say hello.')}</div><div class="cmp"><input class="t" id="ci" placeholder="Message NOVA" onkeydown="event.key==='Enter'&&sendChat()"><button class="btn pri" onclick="sendChat()">Send</button></div><button class="btn danger" onclick="if(confirm('Delete all chat history?')){msgs=[];sv('msgs',msgs);render('chat')}">Clear history</button>`;
+R.chat=()=>hd('Chat','One conversation, shared with voice mode and your saved memory.')+`<div class="chat-meta"><i class="status-dot ready"></i><span>NOVA is ready</span><span class="provider-tag">${esc(cfg.provider)}</span></div><div class="msgs" id="msgs">${msgs.length?msgs.map(mh).join(''):`<div class="chat-empty"><span class="brand-mark"><svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="13"></circle><ellipse cx="24" cy="24" rx="21" ry="8" transform="rotate(-32 24 24)"></ellipse><path d="m24 16 2.3 5.7L32 24l-5.7 2.3L24 32l-2.3-5.7L16 24l5.7-2.3L24 16Z"></path></svg></span><b>Start a conversation</b><span>Ask a question, explore an idea, or pick up where you left off.</span></div>`}</div><div class="chat-compose"><div class="cmp"><input class="t" id="ci" aria-label="Message NOVA" placeholder="Message NOVA…" onkeydown="event.key==='Enter'&&sendChat()"><button class="btn pri" onclick="sendChat()" aria-label="Send message">Send</button></div><div class="helper">Your conversation stays on this device.</div></div><button class="btn danger" onclick="if(confirm('Delete all chat history?')){msgs=[];sv('msgs',msgs);render('chat')}">Clear history</button>`;
 function sendChat(){const i=$('#ci'),x=i.value.trim();if(!x)return;i.value='';turn(x).then(()=>{if(window.PG==='chat'){render('chat');$('#ci').focus()}})}
 R.memory=()=>hd('Memory','Only what you approve. Stored in this browser.')+`<label class="row"><span>Use memory in answers</span><input class="sw" type="checkbox" ${cfg.mem?'checked':''} onchange="cfg.mem=this.checked;sv('cfg',cfg)"></label><div class="cmp"><input class="t" id="mi" placeholder="Something NOVA should remember"><button class="btn pri" onclick="addMem()">Save</button></div>`+(mem.length?mem.map(m=>`<div class="item"><span>${esc(m.t)}</span><button class="btn" onclick="editMem(${m.id})">Edit</button><button class="btn danger" onclick="mem=mem.filter(x=>x.id!==${m.id});sv('mem',mem);render('memory')">Delete</button></div>`).join(''):empty('Nothing is remembered yet.'));
 function addMem(){const x=$('#mi').value.trim();if(!x)return;mem.push({id:Date.now(),t:x});sv('mem',mem);render('memory')}
@@ -445,7 +730,7 @@ function addRem(){const x=$('#rt').value.trim(),d=$('#rd').value;if(!x||!d)retur
 function editRem(id){const r=rem.find(x=>x.id===id),n=prompt('Edit reminder',r.t);if(n&&n.trim()){r.t=n.trim();sv('rem',rem);render('reminders')}}
 setInterval(()=>{const now=Date.now();let ch=false;for(const r of rem)if(!r.fired&&r.at<=now){r.fired=ch=true;toast('Reminder: '+r.t);
  try{if(Notification.permission==='granted')new Notification('NOVA',{body:r.t})}catch{}
- if(!A.muted)speakAll(r.t,A.gen).catch(()=>{})}if(ch){sv('rem',rem);if(window.PG==='reminders')render('reminders')}},15000);
+ if(cfg.vol>0)speakAll(r.t,A.gen).catch(()=>{})}if(ch){sv('rem',rem);if(window.PG==='reminders')render('reminders')}},15000);
 R.research=()=>hd('Research','Real web search with sources.')+`<div class="cmp"><input class="t" id="qi" placeholder="What should I research?" onkeydown="event.key==='Enter'&&doRes()"><button class="btn pri" id="qb" onclick="doRes()">Search</button></div>`+(res.length?res.slice().reverse().map(r=>`<div class="sec"><b>${esc(r.q)}</b><div style="white-space:pre-wrap">${esc(r.text)}</div><div class="src">${(r.sources||[]).map((s,i)=>`[${i+1}] <a target="_blank" rel="noopener" href="${esc(s.url)}">${esc(s.title)}</a>`).join('<br>')||'No sources (search unavailable).'}</div></div>`).join(''):empty('No research yet.'));
 async function doRes(){const q=$('#qi').value.trim();if(!q)return;$('#qb').classList.add('busy');const s=await webSearch(q);setState('thinking');
  try{const d=await llm([{role:'user',content:'Research and summarize, separating confirmed facts from uncertain ones: '+q}],{search:s});res.push({q,text:d.text,sources:s.results||[]});sv('res',res);setState('idle')}catch(e){fail(e)}render('research')}
@@ -460,23 +745,9 @@ function stopShare(){if(shareStream){shareStream.getTracks().forEach(x=>x.stop()
 R.profile=()=>hd('Profile & Language','Saved on this device.')+`<div class="sec"><label>Name<input class="t" id="pn" value="${esc(cfg.name)}" onchange="cfg.name=this.value.trim()||'NOVA User';sv('cfg',cfg);updHeader()"></label><label>Picture<input class="t" type="file" accept="image/*" onchange="setPic(this.files[0])"></label><div class="label">Language</div><div class="chips"><button class="chip" aria-pressed="${cfg.lang==='en'}" onclick="setLang('en')">English</button><button class="chip" aria-pressed="${cfg.lang==='so'}" onclick="setLang('so')">Soomaali</button></div></div>`;
 function setPic(f){if(!f)return;const i=new Image();i.onload=()=>{const c=document.createElement('canvas');c.width=c.height=128;const x=c.getContext('2d'),s=Math.min(i.width,i.height);x.drawImage(i,(i.width-s)/2,(i.height-s)/2,s,s,0,0,128,128);cfg.pic=c.toDataURL('image/jpeg',.8);sv('cfg',cfg);updHeader();toast('Picture updated.')};i.src=URL.createObjectURL(f)}
 function setLang(l){cfg.lang=l;sv('cfg',cfg);updHeader();micUI();setState(state);render(window.PG)}
-R.settings=()=>{setTimeout(async()=>{const s=$('#pst');if(!s)return;try{const d=await(await fetch(API_BASE+'/api/status')).json();s.textContent='Configured on server: '+Object.entries(d.providers).filter(x=>x[1]).map(x=>x[0]).join(', ')+(d.tts?' · voice ready':' · voice NOT configured')+(d.search?' · search ready':' · search NOT configured')}catch{s.textContent=t('net')}},0);return null};
-const SETTINGS_EXTRA=()=>`<div class="sec"><div class="label">AI provider</div><select class="t" onchange="cfg.provider=this.value;sv('cfg',cfg)">${['openrouter','openai','claude','gemini','deepseek','groq'].map(p=>`<option value="${p}" ${cfg.provider===p?'selected':''}>${p}</option>`).join('')}</select><button class="btn" id="tb" onclick="testProv()">Test selected provider</button><div class="dim" style="font-size:12px" id="pst">Checking…</div></div>
-<div class="sec"><div class="label">Voice</div>
-<label>Voice Engine
-<select class="t" onchange="cfg.ttsProvider=this.value;sv('cfg',cfg)">
-<option value="elevenlabs" ${cfg.ttsProvider==='elevenlabs'?'selected':''}>ElevenLabs</option>
-<option value="somali" ${cfg.ttsProvider==='somali'?'selected':''}>Somali – TextReadTTS</option>
-</select></label>
-<label>Speed <input type="range" min=".7" max="1.2" step=".05" value="${cfg.speed}" onchange="cfg.speed=+this.value;sv('cfg',cfg)"></label><label>Volume <input type="range" min="0" max="1" step=".05" value="${cfg.vol}" onchange="cfg.vol=+this.value;sv('cfg',cfg)"></label>
-<label class="row"><span>Speak Chat replies</span><input class="sw" type="checkbox" ${cfg.speakChat?'checked':''} onchange="cfg.speakChat=this.checked;sv('cfg',cfg)"></label><label class="row"><span>Interrupt by voice<br><small class="dim">Use headphones, or NOVA may hear itself.</small></span><input class="sw" type="checkbox" ${cfg.barge?'checked':''} onchange="cfg.barge=this.checked;sv('cfg',cfg)"></label></div>
-<div class="sec"><div class="label">Data & safety</div><button class="btn danger" onclick="stopAll()">Emergency stop</button><button class="btn danger" onclick="if(confirm('Delete ALL local NOVA data?')){Object.keys(localStorage).filter(k=>k.startsWith('nova.')).forEach(k=>localStorage.removeItem(k));location.reload()}">Delete all data</button></div>`;
 async function testProv(){const b=$('#tb');b.classList.add('busy');try{await api('/api/test',{provider:cfg.provider},0);toast(cfg.provider+' works.')}catch(e){toast(cfg.provider+': '+e.message)}b.classList.remove('busy')}
-const _go=go;go=function(id){_go(id);if(id==='settings'){const p=vP.firstElementChild,s=p.querySelectorAll('.sec');s[s.length-1].remove();p.insertAdjacentHTML('beforeend',SETTINGS_EXTRA());R.settings()}};
 $('#micBtn').onclick=()=>A.voice?stopVoice():startVoice();
-$('#bPause').onclick=()=>{A.paused=!A.paused;if(A.paused){if(A.rec)try{A.rec.abort()}catch{}stopSpeech();A.gen++;A.busy=false;setState('idle')}else listen();micUI()};
-$('#bMute').onclick=()=>{A.muted=!A.muted;if(A.muted)stopSpeech();micUI()};
-$('#bStop').onclick=stopVoice;$('#orb').onclick=()=>{if(state==='speaking')interrupt()};
+$('#orb').onclick=()=>{if(state==='speaking')interrupt()};
 addEventListener('pagehide',()=>{if(A.rec)try{A.rec.abort()}catch{}});
 updHeader();micUI();setState('idle');
 </script>

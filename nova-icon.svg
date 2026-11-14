@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="bg" x1="18" y1="15" x2="111" y2="116" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#152b40"/>
+      <stop offset="1" stop-color="#17152e"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="31" y1="35" x2="100" y2="97" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7af1ff"/>
+      <stop offset=".55" stop-color="#76d7ff"/>
+      <stop offset="1" stop-color="#b49aff"/>
+    </linearGradient>
+    <filter id="blur" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="5" result="soft"/>
+      <feMerge><feMergeNode in="soft"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="128" height="128" rx="32" fill="#070b13"/>
+  <rect x="5" y="5" width="118" height="118" rx="29" fill="url(#bg)" stroke="#9ceeff" stroke-opacity=".24"/>
+  <g fill="none" stroke="url(#glow)" stroke-linecap="round" stroke-linejoin="round" filter="url(#blur)">
+    <circle cx="64" cy="66" r="31" stroke-width="3"/>
+    <ellipse cx="64" cy="66" rx="51" ry="19" stroke-width="2.4" transform="rotate(-32 64 66)"/>
+    <path d="m64 44 6.2 15.8L86 66l-15.8 6.2L64 88l-6.2-15.8L42 66l15.8-6.2L64 44Z" stroke-width="2.2"/>
+  </g>
+  <circle cx="101" cy="34" r="3.5" fill="#8bf3ff"/>
+</svg>
