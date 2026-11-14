@@ -1,0 +1,8 @@
+{
+  "appId": "com.nova.ai",
+  "appName": "NOVA AI",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false
+  }
+}
