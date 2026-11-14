@@ -723,7 +723,7 @@ function openDrawer(){lastFocus=document.activeElement;drawer.classList.add('on'
 function closeDrawer(){if(!drawer.classList.contains('on'))return;drawer.classList.remove('on');scrim.classList.remove('on');drawer.setAttribute('aria-hidden','true');menuBtn.setAttribute('aria-expanded','false');
  main.inert=false;document.querySelector('header').inert=false;(lastFocus||menuBtn).focus();}
 menuBtn.onclick=openDrawer;document.getElementById('closeBtn').onclick=closeDrawer;scrim.onclick=closeDrawer;
-document.getElementById('prof').onclick=()=>go('profile');
+{const pf=document.getElementById('prof');if(pf)pf.onclick=()=>go('profile');}
 addEventListener('keydown',e=>{
  if(e.key==='Escape')closeDrawer();
  if(e.key==='Tab'&&drawer.classList.contains('on')){const f=[...drawer.querySelectorAll('button')];const a=f[0],z=f[f.length-1];
@@ -822,8 +822,8 @@ const t=k=>(I[cfg.lang]||I.en)[k]||I.en[k]||k, lab=s=>t(s);
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 const A={voice:false,rec:null,busy:false,gen:0,audio:null,abort:null,retry:0};
 function toast(m){let e=$('#toast');if(!e){e=document.createElement('div');e.id='toast';document.body.append(e)}e.textContent=m;e.hidden=false;clearTimeout(e._t);e._t=setTimeout(()=>e.hidden=true,4000)}
-function updHeader(){$('.pname b').textContent=cfg.name;$('.pname small').textContent=cfg.lang==='so'?'Soomaali':'English';
- $('.avatar').innerHTML=cfg.pic?`<img alt="" src="${cfg.pic}">`:esc((cfg.name||'N')[0].toUpperCase())}
+function updHeader(){const a=$('.pname b'),b=$('.pname small'),v=$('.avatar');if(a)a.textContent=cfg.name;if(b)b.textContent=cfg.lang==='so'?'Soomaali':'English';
+ if(v)v.innerHTML=cfg.pic?`<img alt="" src="${cfg.pic}">`:esc((cfg.name||'N')[0].toUpperCase())}
 function micUI(){const live=A.voice,button=$('#micBtn');button.classList.toggle('live',live);button.classList.toggle('on',live);
  button.setAttribute('aria-pressed',String(live));button.setAttribute('aria-label',live?'Turn listening off':'Start listening');
  $('#micLabel').textContent=live?'Tap to turn listening off':'Tap to talk';
@@ -923,4 +923,203 @@ addEventListener('pagehide',()=>{if(A.rec)try{A.rec.abort()}catch{}});
 updHeader();micUI();setState('idle');
 </script>
 
+<script>
+// NOVA add-on 1: tasks, alarms with music, memory in settings, typing indicator.
+(()=>{
+const css=`
+.mic,.mic *,.core-state{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.mic{touch-action:manipulation}
+.typing{display:flex;gap:5px;align-items:center;padding:14px 16px}.typing i{width:7px;height:7px;border-radius:50%;background:var(--cyan);animation:tdot 1s infinite ease-in-out}
+.typing i:nth-child(2){animation-delay:.15s}.typing i:nth-child(3){animation-delay:.3s}@keyframes tdot{0%,80%,100%{transform:translateY(0);opacity:.35}40%{transform:translateY(-6px);opacity:1}}
+.chat-compose .btn.pri.busy{position:relative;color:transparent}.chat-compose .btn.pri.busy::after{content:"";position:absolute;inset:0;margin:auto;width:18px;height:18px;border:2px solid #07182066;border-top-color:#071820;border-radius:50%;animation:spin .8s linear infinite}
+.tcard{display:grid;gap:12px;padding:16px;border:1px solid #ffffff14;border-radius:18px;background:linear-gradient(145deg,#111b2adf,#0c1421ed)}
+.amp{display:grid;gap:10px;padding:12px;border:1px dashed #67e8f933;border-radius:14px}
+.amp .row2{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.amp small{color:var(--dim)}
+.aico{display:inline-grid;place-items:center;width:22px;height:22px;margin-right:8px;vertical-align:middle}.aico svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.eq rect{fill:currentColor;stroke:none;transform-box:fill-box;transform-origin:bottom;animation:eq 1s ease-in-out infinite}.eq rect:nth-child(2){animation-delay:.2s}.eq rect:nth-child(3){animation-delay:.4s}
+@keyframes eq{50%{transform:scaleY(.35)}}
+.bell{transform-origin:50% 10%;animation:ring 2.4s ease-in-out infinite}@keyframes ring{0%,60%,100%{transform:rotate(0)}10%,30%{transform:rotate(14deg)}20%,40%{transform:rotate(-14deg)}}
+.upl{animation:upl 1.8s ease-in-out infinite}@keyframes upl{50%{transform:translateY(-3px)}}
+.acard{display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid #ffffff14;border-radius:18px;background:linear-gradient(145deg,#111b2a,#0d1521)}
+.acard.done{opacity:.55}.acard .time{font:600 28px var(--display);letter-spacing:-.03em}.acard .meta{flex:1;min-width:0;display:grid;gap:2px}.acard .meta span{overflow-wrap:anywhere}.acard small{color:var(--dim)}
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#aeeef6;border:1px solid #67e8f927;border-radius:999px;padding:2px 9px;width:max-content}
+.ringbox{position:fixed;inset:auto 16px calc(20px + env(safe-area-inset-bottom,0px)) 16px;z-index:60;display:flex;align-items:center;gap:12px;padding:14px 16px;border:1px solid #67e8f966;border-radius:18px;background:#10243aee;box-shadow:0 0 40px #67e8f933}
+.ringbox span{flex:1}`;
+document.head.append(Object.assign(document.createElement('style'),{textContent:css}));
+const ico={eq:'<svg class="eq" viewBox="0 0 24 24"><rect x="4" y="6" width="3.5" height="14" rx="1"/><rect x="10.2" y="3" width="3.5" height="17" rx="1"/><rect x="16.5" y="8" width="3.5" height="12" rx="1"/></svg>',
+ bell:'<svg class="bell" viewBox="0 0 24 24"><path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4zM10 21h4"/></svg>',
+ up:'<svg class="upl" viewBox="0 0 24 24"><path d="M12 16V5m0 0-4 4m4-4 4 4M5 19h14"/></svg>'};
+const ic=(k)=>`<span class="aico">${ico[k]}</span>`;
+// ---- audio storage (IndexedDB) ----
+const DB=()=>new Promise((ok,no)=>{const q=indexedDB.open('nova-audio',1);q.onupgradeneeded=()=>q.result.createObjectStore('f');q.onsuccess=()=>ok(q.result);q.onerror=()=>no(q.error)});
+const put=async(id,b)=>{const d=await DB();return new Promise((ok,no)=>{const t=d.transaction('f','readwrite');t.objectStore('f').put(b,id);t.oncomplete=ok;t.onerror=()=>no(t.error)})};
+const get=async id=>{const d=await DB();return new Promise((ok,no)=>{const q=d.transaction('f').objectStore('f').get(id);q.onsuccess=()=>ok(q.result);q.onerror=()=>no(q.error)})};
+const TONES={chime:[880,1320],pulse:[440,440],beacon:[660,990,660]};let ac,RING=null;
+function tone(n){ac=ac||new AudioContext();ac.resume();let i=0;const f=TONES[n]||TONES.chime,id=setInterval(()=>{const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=f[i++%f.length];g.gain.setValueAtTime(.25,ac.currentTime);g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+.5);o.connect(g).connect(ac.destination);o.start();o.stop(ac.currentTime+.5)},600);return()=>clearInterval(id)}
+function stopRing(){if(RING){RING.stop();RING.box&&RING.box.remove();clearTimeout(RING.t);RING=null}}
+async function play(a,label,loop=true){stopRing();let stop;
+ if(a.builtin)stop=tone(a.id);else{const b=await get(a.id);if(!b)return toast('The attached audio file is missing.');const u=URL.createObjectURL(b),el=new Audio(u);el.loop=loop;el.volume=cfg.vol||1;
+  try{await el.play()}catch{return toast('The browser blocked audio. Tap the page once and try again.')}stop=()=>{el.pause();URL.revokeObjectURL(u)}}
+ const box=document.createElement('div');box.className='ringbox';box.innerHTML=`${ic('bell')}<span>${esc(label)}</span><button class="btn danger">Stop</button>`;box.querySelector('button').onclick=stopRing;document.body.append(box);
+ RING={stop,box,t:setTimeout(stopRing,60000)}}
+// ---- alarm sound picker ----
+let PICK={builtin:true,id:'chime',name:'Chime'};
+const picker=()=>`<div class="amp"><div class="label">${ico.eq?'':''}Choose Your Music</div><div class="chips" style="padding:0">${Object.keys(TONES).map(n=>`<button class="chip" aria-pressed="${PICK.builtin&&PICK.id===n}" onclick="NA.tone('${n}')">${n[0].toUpperCase()+n.slice(1)}</button>`).join('')}</div>
+<div class="row2"><label class="btn">${ic('up')}Choose Music<input type="file" accept="audio/*" hidden onchange="NA.file(this.files[0])"></label><button class="btn" onclick="NA.test()">${ic('eq')}Preview</button></div><small>Selected: ${esc(PICK.name)}${PICK.builtin?'':' (your file)'}</small></div>`;
+const NA=window.NA={
+ tone(n){PICK={builtin:true,id:n,name:n[0].toUpperCase()+n.slice(1)};rerender()},
+ async file(f){if(!f)return;if(!/^audio\//.test(f.type))return toast('Please choose an audio file.');if(f.size>15e6)return toast('File is too large (15 MB max).');
+  const id='a'+Date.now();try{await put(id,f)}catch{return toast('Could not store the audio file in this browser.')}PICK={builtin:false,id,name:f.name};rerender()},
+ test(){play(PICK,'Previewing: '+PICK.name)},
+ addTask(){const x=$('#ti').value.trim();if(!x)return;const k={id:Date.now(),t:x,done:false};tasks.push(k);sv('tasks',tasks);const d=$('#td').value;
+  if(d){rem.push({id:k.id+1,t:x,at:new Date(d).getTime(),task:k.id,fired:false,audio:{...PICK}});sv('rem',rem)}render('tasks')},
+ addRem(){const x=$('#rt').value.trim(),d=$('#rd').value;if(!x||!d)return toast('Enter text and a time.');rem.push({id:Date.now(),t:x,at:new Date(d).getTime(),fired:false,audio:{...PICK}});sv('rem',rem);render('reminders')},
+ async swap(id,f){if(!f)return;const a='a'+Date.now();await put(a,f);const r=rem.find(x=>x.id===id);r.audio={builtin:false,id:a,name:f.name};r.played=false;sv('rem',rem);render('reminders')},
+ memDel(id){mem=mem.filter(x=>x.id!==id);sv('mem',mem);settings()},
+ memAdd(){const i=$('#mi2'),x=i.value.trim();if(!x)return;mem.push({id:Date.now(),t:x});sv('mem',mem);settings()},
+ memEdit(id){editMem(id);setTimeout(settings,0)}};
+const rerender=()=>render(window.PG);
+// ---- Tasks ----
+R.tasks=()=>hd('Tasks','Plan it. Time it. Hear it.')+`<div class="tcard"><input class="t" id="ti" placeholder="What needs doing?"><input class="t" id="td" type="datetime-local" aria-label="Alarm time">${picker()}<button class="btn pri" onclick="NA.addTask()">${ic('bell')}Set Alarm</button></div>`+
+ (tasks.length?tasks.map(k=>{const r=rem.find(x=>x.task===k.id);return`<div class="item ${k.done?'done':''}"><input type="checkbox" class="sw" ${k.done?'checked':''} aria-label="Done" onchange="tasks.find(x=>x.id===${k.id}).done=this.checked;sv('tasks',tasks);render('tasks')"><span>${esc(k.t)}${r?`<br><small class="dim">${new Date(r.at).toLocaleString()}</small> <span class="pill">${ico.bell?'♪':''} ${esc(r.audio?r.audio.name:'no sound')}</span>`:''}</span><button class="btn danger" onclick="tasks=tasks.filter(x=>x.id!==${k.id});rem=rem.filter(x=>x.task!==${k.id});sv('tasks',tasks);sv('rem',rem);render('tasks')">Delete</button></div>`}).join(''):empty('No tasks yet.'));
+// ---- Reminders ----
+R.reminders=()=>hd('Alarms','Rings while NOVA is open. Closed-app alarms need the Android app.')+`<div class="tcard"><input class="t" id="rt" placeholder="Remind me to…"><input class="t" id="rd" type="datetime-local" aria-label="Time">${picker()}<button class="btn pri" onclick="NA.addRem()">${ic('bell')}Set Alarm</button><button class="btn" onclick="Notification.requestPermission().then(p=>toast('Notifications: '+p))">Allow notifications</button></div>`+
+ (rem.length?rem.slice().sort((a,b)=>a.at-b.at).map(r=>{const d=new Date(r.at);return`<div class="acard ${r.fired?'done':''}"><div class="time">${d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div><div class="meta"><span>${esc(r.t)}</span><small>${d.toLocaleDateString()}</small><span class="pill">♪ ${esc(r.audio?r.audio.name:'voice only')}</span></div><label class="btn" aria-label="Change sound">${ic('up')}<input type="file" accept="audio/*" hidden onchange="NA.swap(${r.id},this.files[0])"></label><button class="btn danger" onclick="rem=rem.filter(x=>x.id!==${r.id});sv('rem',rem);render('reminders')">✕</button></div>`}).join(''):empty('No alarms yet.'));
+// ring when a reminder with audio has just fired (core timer marks fired; we play the attached sound)
+setInterval(()=>{const now=Date.now();let ch=false;for(const r of rem)if(r.fired&&r.audio&&!r.played&&now-r.at<6e5){r.played=ch=true;play(r.audio,'Alarm: '+r.t)}if(ch)sv('rem',rem)},2000);
+// ---- Memory moved into Settings ----
+const _s=settings;settings=function(){_s();const g=document.querySelector('.settings-grid');if(!g)return;
+ const old=document.getElementById('memoryEnabled');if(old)old.closest('label').remove();
+ g.insertAdjacentHTML('beforeend',`<section class="sec span-all"><div class="label">Memory</div><label class="row"><span class="setting-copy"><strong>Use saved memory</strong><small>When off, NOVA ignores and won’t save memories.</small></span><input class="sw" type="checkbox" id="memT" ${cfg.mem?'checked':''} aria-label="Memory on or off"></label><div class="cmp"><input class="t" id="mi2" placeholder="Add something to remember"><button class="btn pri" onclick="NA.memAdd()">Save</button></div>${mem.length?mem.map(m=>`<div class="item"><span>${esc(m.t)}</span><button class="btn" onclick="NA.memEdit(${m.id})">Edit</button><button class="btn danger" onclick="NA.memDel(${m.id})">Delete</button></div>`).join(''):'<div class="helper">Nothing remembered yet.</div>'}</section>`);
+ document.getElementById('memT').onchange=e=>{cfg.mem=e.target.checked;sv('cfg',cfg)}};
+const hideMem=()=>{const b=document.querySelector('.ditem[data-id=memory]');if(b)b.style.display='none'};hideMem();
+const _go=go;go=function(id){return _go(id==='memory'?'settings':id)};
+// ---- typing indicator + send button loading ----
+const _ss=setState;setState=function(s){_ss(s);const think=s==='thinking'||s==='searching',m=document.getElementById('msgs'),b=document.querySelector('.chat-compose .btn.pri');
+ if(b)b.classList.toggle('busy',think);if(window.PG==='chat'&&m){let t=document.getElementById('typing');if(think&&!t){m.insertAdjacentHTML('beforeend','<div class="msg assistant typing" id="typing" aria-label="NOVA is typing"><i></i><i></i><i></i></div>');m.lastElementChild.scrollIntoView()}else if(!think&&t)t.remove()}};
+// ---- Tap-to-talk: stop long-press text selection / context menu ----
+const mb=document.getElementById('micBtn');if(mb){mb.addEventListener('contextmenu',e=>e.preventDefault());mb.removeAttribute('title')}
+})();
+</script>
+<script>
+// NOVA add-on 2: new voice background, brand motion, Smart Apps, Research, Social, Screen, Profile
+(()=>{
+const css=`
+.wordmark{background:linear-gradient(100deg,#67e8f9 0,#fff 14%,#a78bfa 30%,#67e8f9 50%,#fff 64%,#a78bfa 80%,#67e8f9 100%)!important;background-size:300% 100%!important;-webkit-background-clip:text!important;background-clip:text!important;color:transparent!important;animation:n2sweep 5s linear infinite!important}
+.mic.voice-button{width:auto!important;min-width:150px!important;white-space:nowrap}.mic.voice-button span{white-space:nowrap}
+@keyframes n2sweep{to{background-position:-300% 0}}
+.brand-mark svg ellipse,.launch-icon svg ellipse,.drawer-mark svg ellipse{stroke-dasharray:46 30;animation:n2dash 5s linear infinite}
+.brand-mark svg path,.launch-icon svg path{transform-box:fill-box;transform-origin:center;animation:n2star 3.2s ease-in-out infinite}
+@keyframes n2dash{to{stroke-dashoffset:-152}}@keyframes n2star{50%{transform:scale(.78) rotate(45deg);opacity:.75}}
+#vbg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;opacity:.9}
+#v-voice{position:relative}.stage,#micBtn{position:relative;z-index:1}
+body:has(#v-voice.on) .ambient-field{opacity:.25}
+.n2-search{display:flex;gap:8px;align-items:center;padding:7px;border:1px solid #ffffff18;border-radius:17px;background:#101a28}.n2-search .t{border:0;background:transparent}
+.n2-skel{display:grid;gap:8px}.n2-skel i{height:14px;border-radius:7px;background:linear-gradient(90deg,#152238,#22364f,#152238);background-size:200%;animation:n2sh 1.2s linear infinite}.n2-skel i:nth-child(2){width:80%}.n2-skel i:nth-child(3){width:55%}
+@keyframes n2sh{to{background-position:-200% 0}}
+.n2-card{display:grid;gap:10px;padding:16px;border:1px solid #ffffff14;border-radius:18px;background:linear-gradient(145deg,#111b2a,#0c1421);animation:message-in .3s both}
+.n2-top{display:flex;gap:10px;align-items:flex-start;justify-content:space-between}.n2-top b{font:600 15px var(--display)}
+.n2-body{white-space:pre-wrap;overflow-wrap:anywhere;color:#cfdcec;font-size:14px;line-height:1.6}
+.n2-badge{flex:none;font-size:11px;padding:3px 9px;border-radius:999px;border:1px solid}.n2-badge.ok{color:var(--ok);border-color:#5eead444;background:#5eead40f}.n2-badge.warn{color:#fbbf24;border-color:#fbbf2444;background:#fbbf240f}
+.n2-srcs{display:grid;gap:6px}.n2-srcs a{display:flex;gap:9px;align-items:center;padding:8px 10px;border:1px solid #ffffff10;border-radius:11px;color:#bfeaf2;text-decoration:none;font-size:13px;overflow-wrap:anywhere}.n2-srcs em{font-style:normal;display:grid;place-items:center;width:20px;height:20px;border-radius:6px;background:#67e8f91c;font-size:11px;flex:none}
+.n2-chips{display:flex;gap:8px;flex-wrap:wrap}.n2-tools{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.n2-tool{display:flex;align-items:center;gap:10px;min-height:52px;padding:10px 14px;border:1px solid #ffffff14;border-radius:15px;background:#111b29;cursor:pointer;transition:transform .18s,border-color .2s}.n2-tool span{display:grid;place-items:center;width:30px;height:30px;border-radius:10px;background:#67e8f91a;color:var(--cyan);font-weight:600}
+.n2-tool:hover{transform:translateY(-2px);border-color:#67e8f955}.n2-tool.on{border-color:#67e8f9;box-shadow:0 0 22px #67e8f922}
+.n2-apps{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.n2-app{display:grid;gap:10px;justify-items:start;padding:14px;border:1px solid #ffffff14;border-radius:18px;background:linear-gradient(145deg,#111b2a,#0d1521);transition:transform .2s,border-color .2s}.n2-app:hover{transform:translateY(-3px);border-color:#67e8f93d}
+.n2-app .tile{display:grid;place-items:center;width:44px;height:44px;border-radius:14px;font:600 18px var(--display);color:#06111a;background:linear-gradient(135deg,var(--cyan),#a5b4fc);animation:n2float 4s ease-in-out infinite}
+@keyframes n2float{50%{transform:translateY(-3px)}}.n2-app .r{display:flex;justify-content:space-between;align-items:center;width:100%;gap:8px}
+.n2-screen{display:grid;justify-items:center;gap:10px;text-align:center;padding:28px 18px;border:1px solid #ffffff14;border-radius:22px;background:linear-gradient(145deg,#111b2a,#0b111d)}
+.n2-ring{display:grid;place-items:center;width:92px;height:92px;border-radius:50%;border:2px solid #ffffff1f;color:#7f93ad}.n2-ring svg{width:38px;height:38px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.n2-screen.live .n2-ring{color:var(--err);border-color:var(--err);animation:n2live 1.2s ease-in-out infinite}@keyframes n2live{50%{box-shadow:0 0 0 12px #fb718518}}
+.n2-prof{display:grid;justify-items:center;gap:12px;padding:22px}.n2-av{display:grid;place-items:center;width:104px;height:104px;border-radius:50%;font:600 40px var(--display);color:#06111a;background:linear-gradient(135deg,var(--cyan),#a78bfa);box-shadow:0 0 40px #67e8f933;overflow:hidden}.n2-av img{width:100%;height:100%;object-fit:cover}
+.n2-seg{display:grid;grid-template-columns:1fr 1fr;padding:4px;border-radius:14px;background:#0a111c;border:1px solid #ffffff12}.n2-seg button{min-height:42px;border:0;border-radius:10px;background:none;color:#9db0c7;cursor:pointer;transition:.2s}.n2-seg .on{background:linear-gradient(110deg,#67e8f9,#a5b4fc);color:#071820;font-weight:600}
+.n2-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.n2-stats div{display:grid;gap:2px;justify-items:center;padding:14px;border:1px solid #ffffff12;border-radius:16px;background:#111b29}.n2-stats b{font:600 22px var(--display)}.n2-stats small{color:var(--dim)}`;
+document.head.append(Object.assign(document.createElement('style'),{textContent:css}));
+const safe=u=>/^https?:\/\//i.test(u)?esc(u):'#';
+// ---- new voice background: flowing ribbons driven by the real state ----
+const vb=document.createElement('canvas');vb.id='vbg';vb.setAttribute('aria-hidden','true');$('#v-voice').prepend(vb);const c=vb.getContext('2d');
+const P={idle:[.25,.35,[103,232,249]],listening:[.6,.8,[94,234,212]],thinking:[.9,1.9,[167,139,250]],speaking:[.8,1.2,[125,211,252]],searching:[.5,1.3,[103,232,249]],error:[.3,.4,[251,113,133]]};
+let w=0,h=0,T=0,lt=0,amp=.25,spd=.35,col=[103,232,249];
+const fit=()=>{const r=vb.getBoundingClientRect();w=vb.width=Math.max(1,r.width/2|0);h=vb.height=Math.max(1,r.height/2|0)};addEventListener('resize',()=>{w=0});
+(function loop(n){requestAnimationFrame(loop);if(document.hidden||opts.reduced||!$('#v-voice').classList.contains('on')||n-lt<33)return;const dt=Math.min((n-lt)/1000,.1);lt=n;if(!w)fit();
+ const p=P[state]||P.idle,k=1-Math.exp(-dt*3);amp+=((p[0]+(state==='listening'?voiceLevel*.6:0))-amp)*k;spd+=(p[1]-spd)*k;for(let i=0;i<3;i++)col[i]+=(p[2][i]-col[i])*k;T+=dt*spd;
+ c.clearRect(0,0,w,h);for(let j=0;j<5;j++){c.beginPath();for(let x=0;x<=w;x+=6){const u=x/w,y=h*(.26+.12*j)+Math.sin(u*5+T+j*1.3)*h*.18*amp+Math.sin(u*11-T*1.4+j)*h*.06*amp;x?c.lineTo(x,y):c.moveTo(x,y)}
+  c.strokeStyle=`rgba(${col[0]|0},${col[1]|0},${col[2]|0},${.06+.06*amp})`;c.lineWidth=2+j;c.stroke()}})(0);
+// ---- Research ----
+R.research=()=>hd('Research','Search the web, read the sources, decide for yourself.')+`<div class="n2-search"><input class="t" id="qi" aria-label="Research question" placeholder="Ask something that needs sources…" onkeydown="event.key==='Enter'&&doRes()"><button class="btn pri" id="qb" onclick="doRes()">Search</button></div><div class="n2-skel" id="rl" hidden><i></i><i></i><i></i></div>`+
+ (res.length?res.slice().reverse().map(r=>{const n=(r.sources||[]).length;return`<article class="n2-card"><div class="n2-top"><b>${esc(r.q)}</b><span class="n2-badge ${n?'ok':'warn'}">${n?n+' sources':'No sources · unverified'}</span></div><div class="n2-body">${esc(r.text)}</div>${n?`<div class="n2-srcs">${r.sources.map((s,i)=>`<a target="_blank" rel="noopener" href="${safe(s.url)}"><em>${i+1}</em>${esc(s.title)}</a>`).join('')}</div>`:''}</article>`}).join(''):empty('No research yet. Your searches are saved here.'));
+const _d=doRes;doRes=async function(){const l=$('#rl');if(l&&$('#qi').value.trim())l.hidden=false;await _d()};
+// ---- Social ----
+const SOC={p:'TikTok',k:'Titles',txt:'',out:''},SK={Titles:'Write 5 catchy title options',Captions:'Write 3 captions',Hashtags:'Suggest 15 relevant hashtags',Ideas:'Give 6 content ideas'},TI={Titles:'T',Captions:'✎',Hashtags:'#',Ideas:'✦'};
+R.social=()=>hd('Social Studio','Titles, captions, hashtags and ideas. No promised results.')+`<div class="n2-chips">${['TikTok','YouTube','Instagram','Facebook'].map(p=>`<button class="chip" aria-pressed="${SOC.p===p}" onclick="NS.set('p','${p}')">${p}</button>`).join('')}</div><div class="n2-tools">${Object.keys(SK).map(k=>`<button class="n2-tool ${SOC.k===k?'on':''}" onclick="NS.set('k','${k}')"><span>${TI[k]}</span>${k}</button>`).join('')}</div><textarea class="t" id="si" rows="4" placeholder="Describe your video or post…">${esc(SOC.txt)}</textarea><button class="btn pri" id="sb" onclick="NS.run()">Generate</button>`+(SOC.out?`<article class="n2-card"><div class="n2-top"><b>${SOC.k} · ${SOC.p}</b><button class="btn" onclick="navigator.clipboard.writeText(SOC.out).then(()=>toast('Copied'))">Copy</button></div><div class="n2-body">${esc(SOC.out)}</div></article>`:'');
+window.SOC=SOC;window.NS={set(k,v){SOC.txt=$('#si').value;SOC[k]=v;render('social')},async run(){const x=$('#si').value.trim();if(!x)return toast('Describe your post first.');SOC.txt=x;$('#sb').classList.add('busy');
+ try{const d=await llm([{role:'user',content:`${SK[SOC.k]} for ${SOC.p}. Never promise views or followers. Topic: ${x}`}]);SOC.out=d.text}catch(e){toast(e.message)}render('social')}};
+// ---- Screen ----
+R.screen=()=>hd('Screen Share','Starts only when you approve. Stop any time.')+`<div class="n2-screen ${shareStream?'live':''}"><div class="n2-ring"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></div><b>${shareStream?'Sharing is ON':'Sharing is OFF'}</b><small class="dim">${shareStream?'Captured in this browser only. Nothing is uploaded.':'Nothing is being captured.'}</small>${shareStream?'<button class="btn danger" onclick="stopShare()">Stop sharing</button>':'<button class="btn pri" onclick="startShare()">Start sharing</button>'}</div><div class="helper">Capturing the whole Android screen needs the native app. This uses your browser’s own screen-capture prompt.</div>`;
+// ---- Profile ----
+R.profile=()=>hd('Profile','Your name, picture and language.')+`<div class="n2-prof"><div class="n2-av">${cfg.pic?`<img alt="" src="${cfg.pic}">`:esc((cfg.name||'N')[0].toUpperCase())}</div><label class="btn">Change picture<input type="file" accept="image/*" hidden onchange="setPic(this.files[0])"></label></div><div class="sec"><label class="setting-field">Name<input class="t" value="${esc(cfg.name)}" onchange="cfg.name=this.value.trim()||'NOVA User';sv('cfg',cfg);updHeader()"></label><div class="label">Language</div><div class="n2-seg"><button class="${cfg.lang==='en'?'on':''}" onclick="setLang('en')">English</button><button class="${cfg.lang==='so'?'on':''}" onclick="setLang('so')">Soomaali</button></div></div><div class="n2-stats"><div><b>${msgs.length}</b><small>Messages</small></div><div><b>${tasks.length}</b><small>Tasks</small></div><div><b>${mem.length}</b><small>Memories</small></div></div>`;
+const _sp=setPic;setPic=function(f){_sp(f);setTimeout(()=>{if(window.PG==='profile')render('profile')},700)};
+// ---- Smart Apps (opens apps via links; you press Send yourself) ----
+const APPS=[['whatsapp','WhatsApp','whatsapp://send','https://wa.me/'],['youtube','YouTube','vnd.youtube://','https://youtube.com'],['tiktok','TikTok','snssdk1128://','https://tiktok.com'],['instagram','Instagram','instagram://app','https://instagram.com'],['facebook','Facebook','fb://','https://facebook.com'],['telegram','Telegram','tg://','https://t.me'],['gmail','Gmail','googlegmail://','https://mail.google.com'],['maps','Maps','geo:0,0','https://maps.google.com']];
+let allowed=ld('apps',{}),draft='';
+R.apps=()=>hd('Smart Apps','Choose which apps NOVA may open for you.')+`<div class="n2-apps">${APPS.map(a=>`<div class="n2-app"><span class="tile">${a[1][0]}</span><b>${a[1]}</b><div class="r"><input class="sw" type="checkbox" aria-label="Allow ${a[1]}" ${allowed[a[0]]?'checked':''} onchange="NP.allow('${a[0]}',this.checked)"><button class="btn" onclick="NP.open('${a[0]}')">Open</button></div></div>`).join('')}</div>
+<div class="sec"><div class="label">Reply draft</div><textarea class="t" id="mr" rows="3" placeholder="Paste the message you received…"></textarea><button class="btn pri" id="mb" onclick="NP.draft()">Draft a reply</button>${draft?`<textarea class="t" id="md" rows="4">${esc(draft)}</textarea><button class="btn" onclick="NP.send()">Open WhatsApp with this reply</button>`:''}<div class="helper">NOVA can’t read other apps or send for you. You review the text and press Send yourself.</div></div><button class="btn danger" onclick="stopAll()">Emergency stop</button>`;
+window.NP={allow(id,v){allowed[id]=v;sv('apps',allowed)},open(id){const a=APPS.find(x=>x[0]===id);if(!allowed[id])return toast('Turn the switch on to allow '+a[1]+'.');let left=false;const h=()=>{if(document.hidden)left=true};document.addEventListener('visibilitychange',h);location.href=a[2];setTimeout(()=>{document.removeEventListener('visibilitychange',h);if(!left)window.open(a[3],'_blank')},1200)},
+ async draft(){const x=$('#mr').value.trim();if(!x)return;$('#mb').classList.add('busy');try{const d=await llm([{role:'user',content:'Write a short, polite reply in the same language to this message. Reply text only: '+x}]);draft=d.text}catch(e){toast(e.message)}render('apps')},
+ send(){const t=$('#md').value.trim();if(t&&confirm('Open WhatsApp with this text? You still press Send yourself.\n\n'+t))window.open('https://wa.me/?text='+encodeURIComponent(t),'_blank')}};
+})();
+</script>
+<script>
+// NOVA add-on 3: new large plasma-sphere home animation and animated NOVA letters
+(()=>{
+const css=`
+#orb{width:min(124vw,76vh,780px)!important;max-width:none!important}
+.stage{overflow:visible;min-height:min(62vh,560px)}
+.core-center{display:none!important}
+.core-state{top:auto!important;bottom:3%}
+.wordmark{position:relative;display:inline-flex!important;gap:.22em;font-size:24px!important;letter-spacing:0!important;padding-left:0!important;background:none!important;-webkit-background-clip:border-box!important;background-clip:border-box!important;color:inherit!important;animation:none!important;filter:none!important}
+.launch-word{display:inline-flex;gap:.3em;letter-spacing:0!important;padding-left:0!important}
+.wordmark i,.launch-word i{font-style:normal;display:inline-block;background:linear-gradient(100deg,#67e8f9,#fff 25%,#a78bfa 50%,#67e8f9 75%,#fff);background-size:300% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;
+ animation:n3in .9s cubic-bezier(.2,.8,.2,1) both,n3shine 4.5s linear infinite,n3float 3.6s ease-in-out infinite;animation-delay:calc(var(--d)*.12s),calc(var(--d)*-.35s),calc(var(--d)*.25s);filter:drop-shadow(0 0 9px #67e8f980)}
+@keyframes n3in{from{opacity:0;transform:translateY(12px) scale(.7);filter:blur(6px)}}
+@keyframes n3shine{to{background-position:-300% 0}}
+@keyframes n3float{50%{transform:translateY(-2px)}}
+.wordmark::after{content:"";position:absolute;left:0;right:.22em;bottom:-5px;height:1px;background:linear-gradient(90deg,transparent,#67e8f9,#a78bfa,transparent);background-size:200% 100%;animation:n3line 3s linear infinite}
+@keyframes n3line{to{background-position:-200% 0}}`;
+document.head.append(Object.assign(document.createElement('style'),{textContent:css}));
+const split=e=>{if(!e||e.dataset.n3)return;e.dataset.n3=1;e.innerHTML=[...e.textContent.trim()].map((ch,i)=>`<i style="--d:${i}">${ch}</i>`).join('')};
+split($('.wordmark'));split($('.launch-word'));
+// ---- plasma sphere: 3D point cloud + constellation links + energy halo, all driven by the real state ----
+const N=240,pts=[],edges=[],pr=new Array(N),TAUv=Math.PI*2;
+for(let i=0;i<N;i++){const y=1-2*(i+.5)/N,rr=Math.sqrt(1-y*y),a=i*2.399963;pts.push({x:Math.cos(a)*rr,y,z:Math.sin(a)*rr,ph:(i*7.31)%6.28})}
+{const seen=new Set();for(let i=0;i<N;i++){const d=[];for(let j=0;j<N;j++)if(j!==i)d.push([pts[i].x*pts[j].x+pts[i].y*pts[j].y+pts[i].z*pts[j].z,j]);d.sort((a,b)=>b[0]-a[0]);
+ for(let k=0;k<2;k++){const j=d[k][1],key=i<j?i+'-'+j:j+'-'+i;if(!seen.has(key)){seen.add(key);edges.push([i,j])}}}}
+let E=0;
+draw=function(){
+ if(!W)size();
+ const r=W/2,t=time,cx=r,cy=r,P=cur.p,Sc=cur.s;
+ const tgt=state==='speaking'?.4+.3*(.5+.5*Math.sin(t*6.3))+voiceLevel*.1:state==='listening'?.15+voiceLevel*.85:state==='thinking'?.55:state==='searching'?.3:state==='error'?.1:.05;
+ E+=(tgt-E)*.1;
+ const R=r*.5*(1+.03*Math.sin(t*1.1)+E*.08);
+ ctx.clearRect(0,0,W,W);
+ let g=ctx.createRadialGradient(cx,cy,0,cx,cy,r);g.addColorStop(0,rgba(P,.24+E*.22));g.addColorStop(.45,rgba(Sc,.09+E*.06));g.addColorStop(1,rgba(Sc,0));ctx.fillStyle=g;ctx.fillRect(0,0,W,W);
+ if(state==='listening'||state==='speaking')for(let i=0;i<3;i++){const q=(t*.3+i/3)%1;ctx.beginPath();ctx.arc(cx,cy,R*(1.1+q*.75),0,TAUv);ctx.strokeStyle=rgba(P,(1-q)*(.1+E*.35));ctx.lineWidth=Math.max(1,r*.004);ctx.stroke()}
+ ctx.lineCap='round';
+ for(let i=0;i<96;i++){const a=i/96*TAUv+phase*.15,w=.5+.5*Math.sin(i*.9-t*(state==='speaking'?7:2.5)+Math.sin(i*.3)*2),len=r*(.012+E*.09*w),r0=R*1.2;
+  ctx.beginPath();ctx.moveTo(cx+Math.cos(a)*r0,cy+Math.sin(a)*r0);ctx.lineTo(cx+Math.cos(a)*(r0+len),cy+Math.sin(a)*(r0+len));ctx.strokeStyle=rgba(i%3?P:Sc,.16+E*.5*w);ctx.lineWidth=Math.max(1,r*.0045);ctx.stroke()}
+ const cr=R*(.52+E*.12);g=ctx.createRadialGradient(cx,cy,0,cx,cy,cr);g.addColorStop(0,'rgba(255,255,255,.95)');g.addColorStop(.25,rgba(P,.75));g.addColorStop(.6,rgba(Sc,.28));g.addColorStop(1,rgba(Sc,0));ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx,cy,cr,0,TAUv);ctx.fill();
+ const ay=phase*.8,ax=.38+.12*Math.sin(t*.25),cY=Math.cos(ay),sY=Math.sin(ay),cX=Math.cos(ax),sX=Math.sin(ax),scan=state==='searching'?Math.sin(t*1.7):9;
+ for(let i=0;i<N;i++){const p=pts[i],dp=1+((state==='speaking'||state==='listening')?.16*E*Math.sin(p.ph*2+t*7+p.y*6):.025*Math.sin(t*.9+p.ph))+(state==='error'?.03*Math.sin(t*40+p.ph):0);
+  const x=p.x*dp,y=p.y*dp,z=p.z*dp,x2=x*cY+z*sY,z2=-x*sY+z*cY,y2=y*cX-z2*sX,z3=y*sX+z2*cX,f=1/(1-z3*.28);
+  pr[i]={x:cx+x2*R*f,y:cy+y2*R*f,z:z3,f,b:Math.max(0,1-Math.abs(p.y-scan)*5)}}
+ ctx.lineWidth=Math.max(1,r*.0025);const eo=state==='thinking'?.36:state==='idle'?.12:.18+E*.1;
+ for(const e of edges){const a=pr[e[0]],b=pr[e[1]],z=(a.z+b.z)/2,al=eo*(.25+.75*(z+1)/2)+(a.b+b.b)*.12;ctx.strokeStyle=rgba(z>0?P:Sc,al);ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke()}
+ for(let i=0;i<N;i++){const q=pr[i],d=(q.z+1)/2,s=r*.0058*q.f*(.7+d*.9+E*.6+q.b*1.5);ctx.fillStyle=rgba(i%4?P:Sc,.25+d*.6+q.b*.4);ctx.beginPath();ctx.arc(q.x,q.y,s,0,TAUv);ctx.fill()}
+ for(let i=0;i<3;i++){ctx.save();ctx.translate(cx,cy);ctx.rotate(i*1.05+phase*(i%2?-.5:.4));const rx=R*(1.22+i*.1),ry=R*(.34+i*.07);
+  ctx.beginPath();ctx.ellipse(0,0,rx,ry,0,0,TAUv);ctx.strokeStyle=rgba(i===1?Sc:P,.12+E*.15+(state==='thinking'?.15:0));ctx.lineWidth=Math.max(1,r*.003);ctx.stroke();
+  const a=t*(.6+i*.25)*(state==='thinking'?3:1)+i*2;ctx.beginPath();ctx.arc(Math.cos(a)*rx,Math.sin(a)*ry,r*.011,0,TAUv);ctx.fillStyle=rgba(P,.95);ctx.shadowColor=rgba(P,1);ctx.shadowBlur=r*.04;ctx.fill();ctx.restore()}
+};
+})();
+</script>
 </body></html>
