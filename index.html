@@ -741,7 +741,17 @@ function planned(p){
  ${p.composer?`<div class="composer" aria-hidden="true"><input disabled placeholder="Chat is not connected yet"><button disabled tabindex="-1"></button></div>`:''}
  <div class="empty"><div class="ring"></div>${p.e}</div></div>`;}
 function settings(){
- const providers=['openrouter','openai','claude','gemini','deepseek','groq'];
+ const providers=['auto','openrouter','openai','claude','gemini','deepseek','groq'];
+ const modelOptions={
+  auto:[['','Automatic · provider defaults']],
+  openrouter:[['openrouter/free','OpenRouter Free']],
+  openai:[['gpt-4o-mini','GPT-4o mini']],
+  claude:[['claude-3-5-haiku-latest','Claude 3.5 Haiku']],
+  gemini:[['gemini-2.0-flash','Gemini 2.0 Flash']],
+  deepseek:[['deepseek-chat','DeepSeek Chat']],
+  groq:[['openai/gpt-oss-120b','GPT OSS 120B']]
+ };
+ if(!cfg.model)cfg.model='';
  vP.innerHTML=`<div class="pad">
   <div class="page-heading"><div class="eyebrow">Personalize NOVA</div><h1>Settings</h1><p>Your assistant, your preferences. Changes are saved on this device.</p></div>
   <div class="settings-grid">
@@ -752,7 +762,9 @@ function settings(){
    </section>
    <section class="sec"><div class="label">AI connection</div>
     <label class="setting-field"><span class="setting-copy"><strong>Preferred provider</strong><small>Choose a provider configured on your NOVA server.</small></span>
-     <select class="t" id="provider">${providers.map(p=>`<option value="${p}" ${cfg.provider===p?'selected':''}>${p==='openrouter'?'OpenRouter':p[0].toUpperCase()+p.slice(1)}</option>`).join('')}</select></label>
+     <select class="t" id="provider">${providers.map(p=>`<option value="${p}" ${cfg.provider===p?'selected':''}>${p==='auto'?'Automatic fallback':p==='openrouter'?'OpenRouter':p[0].toUpperCase()+p.slice(1)}</option>`).join('')}</select></label>
+     <label class="setting-field"><span class="setting-copy"><strong>AI model</strong><small>Choose a model for the selected provider. Automatic mode uses each provider’s default model.</small></span>
+      <select class="t" id="model">${(modelOptions[cfg.provider]||modelOptions.auto).map(([v,n])=>`<option value="${v}" ${cfg.model===v?'selected':''}>${n}</option>`).join('')}</select></label>
     <div class="settings-actions"><button class="btn" id="tb" type="button">Test selected provider</button></div>
     <div class="status-panel"><i class="status-dot" id="providerDot"></i><span id="pst" aria-live="polite">Checking server configuration…</span></div>
    </section>
@@ -875,7 +887,7 @@ function add(role,content,extra){msgs.push(Object.assign({role,content,t:Date.no
 function local(x){let m;
  if(m=x.match(/^(?:remember|xusuuso)(?: that)?\s+(.+)/i)){if(!cfg.mem)return'Memory is turned off in Settings.';if(!confirm('Save to memory?\n\n'+m[1]))return'Okay, I did not save it.';mem.push({id:Date.now(),t:m[1]});sv('mem',mem);return'Saved to memory.'}
  if(m=x.match(/^(?:add task|new task|ku dar hawl)[:\s]+(.+)/i)){tasks.push({id:Date.now(),t:m[1],done:false});sv('tasks',tasks);return'Task added: '+m[1]}return null}
-async function llm(history,extra={}){const r=await api('/api/chat',Object.assign({messages:history.map(({role,content})=>({role,content})),provider:cfg.provider,lang:cfg.lang,memory:cfg.mem?mem.map(m=>m.t):[]},extra));return r.json()}
+async function llm(history,extra={}){const r=await api('/api/chat',Object.assign({messages:history.map(({role,content})=>({role,content})),provider:cfg.provider,model:cfg.model||undefined,lang:cfg.lang,memory:cfg.mem?mem.map(m=>m.t):[]},extra));return r.json()}
 async function webSearch(q){setState('searching');try{return await(await api('/api/search',{q})).json()}catch(e){toast('Search failed: '+e.message);return{error:e.message}}}
 async function turn(text){const g=++A.gen;stopSpeech();A.busy=true;if(A.rec){try{A.rec.abort()}catch{}}add('user',text);
  try{const l=local(text);let out,src=null,prov;
@@ -917,7 +929,7 @@ function stopShare(){if(shareStream){shareStream.getTracks().forEach(x=>x.stop()
 R.profile=()=>hd('Profile & Language','Saved on this device.')+`<div class="sec"><label>Name<input class="t" id="pn" value="${esc(cfg.name)}" onchange="cfg.name=this.value.trim()||'NOVA User';sv('cfg',cfg);updHeader()"></label><label>Picture<input class="t" type="file" accept="image/*" onchange="setPic(this.files[0])"></label><div class="label">Language</div><div class="chips"><button class="chip" aria-pressed="${cfg.lang==='en'}" onclick="setLang('en')">English</button><button class="chip" aria-pressed="${cfg.lang==='so'}" onclick="setLang('so')">Soomaali</button></div></div>`;
 function setPic(f){if(!f)return;const i=new Image();i.onload=()=>{const c=document.createElement('canvas');c.width=c.height=128;const x=c.getContext('2d'),s=Math.min(i.width,i.height);x.drawImage(i,(i.width-s)/2,(i.height-s)/2,s,s,0,0,128,128);cfg.pic=c.toDataURL('image/jpeg',.8);sv('cfg',cfg);updHeader();toast('Picture updated.')};i.src=URL.createObjectURL(f)}
 function setLang(l){cfg.lang=l;sv('cfg',cfg);updHeader();micUI();setState(state);render(window.PG)}
-async function testProv(){const b=$('#tb');b.classList.add('busy');try{await api('/api/test',{provider:cfg.provider},0);toast(cfg.provider+' works.')}catch(e){toast(cfg.provider+': '+e.message)}b.classList.remove('busy')}
+async function testProv(){const b=$('#tb');b.classList.add('busy');try{if(cfg.provider==='auto'){const d=await(await fetch(API_BASE+'/api/status')).json();const n=Object.values(d.providers||{}).filter(Boolean).length;if(!n)throw new Error('No provider API keys are configured.');toast('Automatic fallback ready · '+n+' providers configured.')}else{await api('/api/test',{provider:cfg.provider},0);toast(cfg.provider+' works.')}}catch(e){toast(cfg.provider+': '+e.message)}b.classList.remove('busy')}
 $('#micBtn').onclick=()=>A.voice?stopVoice():startVoice();
 $('#orb').onclick=()=>{if(state==='speaking')interrupt()};
 addEventListener('pagehide',()=>{if(A.rec)try{A.rec.abort()}catch{}});
