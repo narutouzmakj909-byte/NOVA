@@ -25,6 +25,8 @@ app.get("/api/status", (req, res) => {
     providers: Object.fromEntries(
       Object.entries(keys).map(([k, v]) => [k, !!v])
     ),
+    defaultModels,
+    fallback: true,
     tts: !!process.env.ELEVENLABS_API_KEY &&
          !!process.env.ELEVENLABS_VOICE_ID,
     somaliTts: true,
@@ -32,20 +34,121 @@ app.get("/api/status", (req, res) => {
   });
 });
 
-// AI CHAT
-app.post("/api/chat", async (req, res) => {
-  try {
-    const { messages, provider, lang, memory, search } = req.body;
-    const selected = provider || "openrouter";
-    const history = Array.isArray(messages) ? messages : [];
+// AI PROVIDER CONFIG
+const defaultModels = {
+  openrouter: "openrouter/free",
+  openai: "gpt-4o-mini",
+  claude: "claude-3-5-haiku-latest",
+  gemini: "gemini-2.0-flash",
+  deepseek: "deepseek-chat",
+  groq: "openai/gpt-oss-120b"
+};
 
-    if (!keys[selected]) {
-      return res.status(400).json({
-        error: `${selected} API key lama gelin.`
-      });
+const providerOrder = ["openrouter", "openai", "claude", "gemini", "deepseek", "groq"];
+
+async function requestAI(provider, messages, system, requestedModel) {
+  const model = requestedModel || defaultModels[provider];
+
+  if (["openai", "deepseek", "groq", "openrouter"].includes(provider)) {
+    const base = provider === "openai"
+      ? "https://api.openai.com/v1"
+      : provider === "deepseek"
+      ? "https://api.deepseek.com"
+      : provider === "groq"
+      ? "https://api.groq.com/openai/v1"
+      : "https://openrouter.ai/api/v1";
+
+    const headers = {
+      Authorization: `Bearer ${keys[provider]}`,
+      "Content-Type": "application/json"
+    };
+
+    if (provider === "openrouter") {
+      headers["HTTP-Referer"] = "https://nova-2tv2.onrender.com";
+      headers["X-Title"] = "NOVA AI";
     }
 
-    const system = `You are NOVA, an advanced, professional and friendly AI assistant.
+    const response = await fetch(`${base}/chat/completions`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        model,
+        messages: [{ role: "system", content: system }, ...messages]
+      })
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error?.message || `${provider} request failed (${response.status})`);
+    }
+    return data.choices?.[0]?.message?.content || "";
+  }
+
+  if (provider === "claude") {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": keys.claude,
+        "anthropic-version": "2023-06-01",
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: 1500,
+        system,
+        messages: messages.map(m => ({
+          role: m.role === "assistant" ? "assistant" : "user",
+          content: String(m.content || "")
+        }))
+      })
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error?.message || `Claude request failed (${response.status})`);
+    }
+    return data.content?.map(x => x.text || "").join("") || "";
+  }
+
+  if (provider === "gemini") {
+    const contents = messages.map(m => ({
+      role: m.role === "assistant" ? "model" : "user",
+      parts: [{ text: String(m.content || "") }]
+    }));
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${keys.gemini}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: system }] },
+          contents
+        })
+      }
+    );
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error?.message || `Gemini request failed (${response.status})`);
+    }
+    return data.candidates?.[0]?.content?.parts?.map(x => x.text || "").join("") || "";
+  }
+
+  throw new Error(`Provider aan la aqoon: ${provider}`);
+}
+
+// AI CHAT WITH AUTOMATIC FALLBACK
+app.post("/api/chat", async (req, res) => {
+  const { messages, provider, model, lang, memory, search } = req.body;
+  const preferred = provider || "openrouter";
+  const history = Array.isArray(messages) ? messages : [];
+
+  if (preferred !== "auto" && !providerOrder.includes(preferred)) {
+    return res.status(400).json({ error: "AI provider aan sax ahayn." });
+  }
+
+  const system = `You are NOVA, an advanced, professional and friendly AI assistant.
 
 PERSONALITY:
 - Be natural, warm, open-minded, confident and conversational.
@@ -84,122 +187,41 @@ IDENTITY:
 User memory: ${(memory || []).join("\n")}
 Search information: ${JSON.stringify(search || {})}`;
 
-    let text;
+  // Provider-ka la doortay ayaa marka hore la tijaabinayaa; kuwa kale waa fallback.
+  const candidates = preferred === "auto"
+    ? providerOrder
+    : [preferred, ...providerOrder.filter(p => p !== preferred)];
 
-    if (["openai", "deepseek", "groq", "openrouter"].includes(selected)) {
-      const base = selected === "openai"
-        ? "https://api.openai.com/v1"
-        : selected === "deepseek"
-        ? "https://api.deepseek.com"
-        : selected === "groq"
-        ? "https://api.groq.com/openai/v1"
-        : "https://openrouter.ai/api/v1";
+  const failures = [];
 
-      const model = selected === "openai"
-        ? "gpt-4o-mini"
-        : selected === "deepseek"
-        ? "deepseek-chat"
-        : selected === "groq"
-        ? "openai/gpt-oss-120b"
-        : "openrouter/free";
+  for (const current of candidates) {
+    if (!keys[current]) {
+      failures.push(`${current}: API key lama dejin`);
+      continue;
+    }
 
-      const headers = {
-        Authorization: `Bearer ${keys[selected]}`,
-        "Content-Type": "application/json"
-      };
+    try {
+      // Model-ka user-ku doortay waxaa loo adeegsadaa provider-ka koowaad oo keliya.
+      const selectedModel = current === preferred ? model : null;
+      const answer = await requestAI(current, history, system, selectedModel);
 
-      if (selected === "openrouter") {
-        headers["HTTP-Referer"] = "https://nova-2tv2.onrender.com";
-        headers["X-Title"] = "NOVA AI";
-      }
-
-      const r = await fetch(`${base}/chat/completions`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          model,
-          messages: [
-            { role: "system", content: system },
-            ...history
-          ]
-        })
+      return res.json({
+        text: answer || "No response received.",
+        provider: current,
+        model: selectedModel || defaultModels[current],
+        fallback: current !== preferred,
+        requestedProvider: preferred
       });
-
-      const d = await r.json();
-
-      if (!r.ok) {
-        throw new Error(d.error?.message || "AI request failed");
-      }
-
-      text = d.choices?.[0]?.message?.content;
+    } catch (error) {
+      failures.push(`${current}: ${error.message}`);
+      console.error(`NOVA ${current} error:`, error.message);
     }
-
-    if (selected === "claude") {
-      const r = await fetch(
-        "https://api.anthropic.com/v1/messages",
-        {
-          method: "POST",
-          headers: {
-            "x-api-key": keys.claude,
-            "anthropic-version": "2023-06-01",
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            model: "claude-3-5-haiku-latest",
-            max_tokens: 1500,
-            system,
-            messages: history
-          })
-        }
-      );
-
-      const d = await r.json();
-
-      if (!r.ok) {
-        throw new Error(d.error?.message || "Claude failed");
-      }
-
-      text = d.content?.map(x => x.text || "").join("");
-    }
-
-    if (selected === "gemini") {
-      const contents = history.map(m => ({
-        role: m.role === "assistant" ? "model" : "user",
-        parts: [{ text: m.content }]
-      }));
-
-      const r = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${keys.gemini}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            systemInstruction: {
-              parts: [{ text: system }]
-            },
-            contents
-          })
-        }
-      );
-
-      const d = await r.json();
-
-      if (!r.ok) {
-        throw new Error(d.error?.message || "Gemini failed");
-      }
-
-      text = d.candidates?.[0]?.content?.parts
-        ?.map(x => x.text || "").join("");
-    }
-
-    res.json({
-      text: text || "No response received.",
-      provider: selected
-    });
-
-  } catch (e) {
-    res.status(500).json({ error: e.message });
   }
+
+  return res.status(503).json({
+    error: "Dhammaan AI providers way fashilmeen ama API keys-koodu ma jiraan.",
+    details: failures
+  });
 });
 
 // ELEVENLABS TTS
