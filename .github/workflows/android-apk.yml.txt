@@ -1,0 +1,58 @@
+
+name: Build NOVA Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout NOVA
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Prepare NOVA web files
+        run: |
+          mkdir -p www
+          cp index.html www/
+          cp manifest.json www/
+          cp sw.js www/
+          cp nova-icon.svg www/
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Android notification plugin
+        run: |
+          CAP_MAJOR=$(node -p "require('@capacitor/core/package.json').version.split('.')[0]")
+          npm install "@capacitor/local-notifications@$CAP_MAJOR"
+
+      - name: Add Android
+        run: npx cap add android
+
+      - name: Sync Android
+        run: npx cap sync android
+
+      - name: Build APK
+        working-directory: android
+        run: ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: NOVA-AI-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
